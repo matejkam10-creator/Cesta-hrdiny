@@ -26,8 +26,14 @@
   .select("*")
   .eq("user_id", user.id)
   .single();
-    document.getElementById("postava").textContent =
-  error ? "Postavu se nepodařilo načíst." : "Hrdina: " + postava.name;
+    if (error) {
+  document.getElementById("postava").textContent = "Postavu se nepodařilo načíst.";
+} else {
+      document.getElementById("postava").innerHTML =
+  "<h2>" + postava.name + "</h2>" +
+  "<p>Úroveň: " + postava.level + "</p>" +
+  "<p>XP: " + postava.total_xp + "</p>";
+    }
     </script>
 
 </body>
