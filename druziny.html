@@ -50,6 +50,21 @@ if (postavaError) {
     document.getElementById("druziny").textContent =
       "Zatím nejsi členem žádné družiny.";
   }
+  else {
+  const ids = clenstvi.map(c => c.group_id);
+
+  const { data: skupiny, error: skupinyError } = await client
+    .from("groups")
+    .select("id, name")
+    .in("id", ids);
+
+  if (skupinyError) {
+    document.getElementById("druziny").textContent = "Družiny se nepodařilo načíst: " + skupinyError.message;
+  } else {
+    document.getElementById("druziny").innerHTML =
+      skupiny.map(g => "<p>⚔️ " + g.name + "</p>").join("");
+  }
+  }  
   }
   document.getElementById("vytvorDruzinu").addEventListener("click", async () => {
   const nazev = document.getElementById("nazevDruziny").value.trim();
