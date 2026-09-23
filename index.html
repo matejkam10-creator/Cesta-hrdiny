@@ -135,11 +135,12 @@
 
       if (error) {
         status.textContent = "Přihlášení se nezdařilo: " + error.message;
-        window.location.href = "postava.html";
+        
         return;
       }
 
       status.textContent = "Přihlášení proběhlo úspěšně.";
+      window.location.href = "postava.html";
     });
   </script>
 </body>
