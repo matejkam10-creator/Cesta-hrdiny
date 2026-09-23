@@ -19,9 +19,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script type="module">
-  const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
-  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const { data: { user } } = await client.auth.getUser();
 
 if (!user) {
@@ -32,23 +32,32 @@ if (!user) {
   .select("id")
   .eq("user_id", user.id)
   .single();
-  if (postavaError) {
-  document.getElementById("druziny").textContent = "Postavu se nepodařilo načíst.";
-  }
+
+if (postavaError) {
+  document.getElementById("druziny").textContent =
+    "Postavu se nepodařilo načíst.";
+}
   if (!postavaError) {
   const { data: clenstvi, error: clenstviError } = await client
     .from("group_members")
     .select("group_id, role")
     .eq("character_id", postava.id);
-  if (!clenstviError && clenstvi.length === 0) {
-  document.getElementById("druziny").textContent = "Zatím nejsi členem žádné družiny.";
+
+  if (clenstviError) {
+    document.getElementById("druziny").textContent =
+      "Družiny se nepodařilo načíst.";
+  } else if (clenstvi.length === 0) {
+    document.getElementById("druziny").textContent =
+      "Zatím nejsi členem žádné družiny.";
   }
-document.getElementById("vytvorDruzinu").addEventListener("click", async () => {
+  }
+  document.getElementById("vytvorDruzinu").addEventListener("click", async () => {
   const nazev = document.getElementById("nazevDruziny").value.trim();
 
   if (!nazev) {
     document.getElementById("zprava").textContent = "Napiš název družiny.";
     return;
+  }
 const { data: novaDruzina, error: chybaDruziny } = await client
   .from("groups")
   .insert({
@@ -56,9 +65,10 @@ const { data: novaDruzina, error: chybaDruziny } = await client
     created_by: user.id
   })
   .select("id")
-  .single();  
+  .single();
   if (chybaDruziny) {
-  document.getElementById("zprava").textContent = "Družinu se nepodařilo vytvořit.";
+  document.getElementById("zprava").textContent =
+    "Družinu se nepodařilo vytvořit.";
   return;
   }
   const { error: chybaClenstvi } = await client
@@ -74,8 +84,9 @@ const { data: novaDruzina, error: chybaDruziny } = await client
   return;
 }
 
-document.getElementById("zprava").textContent = "Družina byla úspěšně vytvořena!";
-});
+document.getElementById("zprava").textContent =
+  "Družina byla úspěšně vytvořena!";
+    });
 </script>
 </body>
 </html>
