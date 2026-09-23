@@ -68,7 +68,7 @@ const { data: novaDruzina, error: chybaDruziny } = await client
   .single();
   if (chybaDruziny) {
   document.getElementById("zprava").textContent =
-    "Družinu se nepodařilo vytvořit.";
+    "Družinu se nepodařilo vytvořit: " + chybaDruziny.message;
   return;
   }
   const { error: chybaClenstvi } = await client
