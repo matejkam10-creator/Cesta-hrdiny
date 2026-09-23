@@ -4,9 +4,114 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cesta hrdiny</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Georgia, serif;
+      color: #f3ead7;
+      background:
+        radial-gradient(circle at top, #342b3d 0%, #17141c 45%, #09080b 100%);
+    }
+
+    .page {
+      width: min(100%, 500px);
+      min-height: 100vh;
+      margin: auto;
+      padding: 55px 24px 35px;
+      text-align: center;
+    }
+
+    .symbol {
+      font-size: 48px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 38px;
+      color: #e8c47c;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      margin: 12px 0 42px;
+      color: #b9ad9d;
+      line-height: 1.6;
+    }
+
+    .card {
+      padding: 26px 20px;
+      border: 1px solid #66533d;
+      border-radius: 18px;
+      background: rgba(20, 17, 22, .88);
+      box-shadow: 0 12px 35px rgba(0,0,0,.35);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      color: #f1dfba;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px;
+      margin: 7px 0;
+      border: 1px solid #554a40;
+      border-radius: 10px;
+      background: #0e0d10;
+      color: white;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 15px;
+      padding: 15px;
+      border: 0;
+      border-radius: 10px;
+      background: #a67c3d;
+      color: white;
+      font-size: 17px;
+      font-weight: bold;
+    }
+
+    .register {
+      margin-top: 22px;
+      color: #aaa096;
+      font-size: 14px;
+    }
+
+    .register span {
+      color: #e8c47c;
+    }
+  </style>
 </head>
+
 <body>
-  <h1>Cesta hrdiny</h1>
-  <p>Vítej ve světě dobrodružství.</p>
+  <main class="page">
+    <div class="symbol">⚔️</div>
+    <h1>Cesta hrdiny</h1>
+    <p class="subtitle">
+      Vstup do světa dobrodružství.<br>
+      Tvůj příběh právě začíná.
+    </p>
+
+    <section class="card">
+      <h2>Přihlášení</h2>
+
+      <input type="email" placeholder="E-mail">
+      <input type="password" placeholder="Heslo">
+
+      <button>Přihlásit se</button>
+
+      <p class="register">
+        Ještě nemáš účet? <span>Vytvořit účet</span>
+      </p>
+    </section>
+  </main>
 </body>
 </html>
