@@ -14,6 +14,31 @@
   <div id="obsahDruziny"></div>
 
   <p><a href="druziny.html" style="color:#e8c77a;">← Zpět na moje družiny</a></p>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const params = new URLSearchParams(window.location.search);
+const groupId = params.get("id");
+    const { data: { user } } = await client.auth.getUser();
 
+if (!user) {
+  window.location.href = "index.html";
+}
+    const { data: druzina, error } = await client
+  .from("groups")
+  .select("id, name, description")
+  .eq("id", groupId)
+  .single();
+    if (error) {
+  document.getElementById("nazevDruziny").textContent =
+    "Družinu se nepodařilo načíst.";
+} else {
+  document.getElementById("nazevDruziny").textContent = druzina.name;
+  document.getElementById("obsahDruziny").textContent =
+    druzina.description || "Družina zatím nemá popis.";
+    }
+  </script>
 </body>
 </html>
