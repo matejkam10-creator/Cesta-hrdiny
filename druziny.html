@@ -12,6 +12,10 @@
   <h2>Moje družiny</h2>
 
   <div id="druziny">Načítám tvoje družiny...</div>
+  <h3>Vytvořit novou družinu</h3>
+<input id="nazevDruziny" type="text" placeholder="Název družiny">
+<button id="vytvorDruzinu">Vytvořit družinu</button>
+<p id="zprava"></p>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script type="module">
@@ -39,7 +43,39 @@ if (!user) {
   if (!clenstviError && clenstvi.length === 0) {
   document.getElementById("druziny").textContent = "Zatím nejsi členem žádné družiny.";
   }}
+document.getElementById("vytvorDruzinu").addEventListener("click", async () => {
+  const nazev = document.getElementById("nazevDruziny").value.trim();
 
+  if (!nazev) {
+    document.getElementById("zprava").textContent = "Napiš název družiny.";
+    return;
+const { data: novaDruzina, error: chybaDruziny } = await client
+  .from("groups")
+  .insert({
+    name: nazev,
+    created_by: user.id
+  })
+  .select("id")
+  .single();  
+  if (chybaDruziny) {
+  document.getElementById("zprava").textContent = "Družinu se nepodařilo vytvořit.";
+  return;
+  }
+  const { error: chybaClenstvi } = await client
+  .from("group_members")
+  .insert({
+    group_id: novaDruzina.id,
+    character_id: postava.id,
+    role: "captain"
+  });
+  if (chybaClenstvi) {
+  document.getElementById("zprava").textContent =
+    "Družina byla vytvořena, ale nepodařilo se přidat kapitána.";
+  return;
+}
+
+document.getElementById("zprava").textContent = "Družina byla úspěšně vytvořena!";
+});
 </script>
 </body>
 </html>
