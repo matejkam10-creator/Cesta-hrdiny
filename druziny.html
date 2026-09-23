@@ -42,7 +42,7 @@ if (!user) {
     .eq("character_id", postava.id);
   if (!clenstviError && clenstvi.length === 0) {
   document.getElementById("druziny").textContent = "Zatím nejsi členem žádné družiny.";
-  }}
+  }
 document.getElementById("vytvorDruzinu").addEventListener("click", async () => {
   const nazev = document.getElementById("nazevDruziny").value.trim();
 
