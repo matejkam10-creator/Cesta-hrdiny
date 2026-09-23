@@ -12,6 +12,34 @@
   <h2>Moje družiny</h2>
 
   <div id="druziny">Načítám tvoje družiny...</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script type="module">
+  const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const { data: { user } } = await client.auth.getUser();
+
+if (!user) {
+  window.location.href = "index.html";
+}
+  const { data: postava, error: postavaError } = await client
+  .from("characters")
+  .select("id")
+  .eq("user_id", user.id)
+  .single();
+  if (postavaError) {
+  document.getElementById("druziny").textContent = "Postavu se nepodařilo načíst.";
+  }
+  if (!postavaError) {
+  const { data: clenstvi, error: clenstviError } = await client
+    .from("group_members")
+    .select("group_id, role")
+    .eq("character_id", postava.id);
+  if (!clenstviError && clenstvi.length === 0) {
+  document.getElementById("druziny").textContent = "Zatím nejsi členem žádné družiny.";
+  }}
+
+</script>
 </body>
 </html>
