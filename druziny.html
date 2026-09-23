@@ -62,7 +62,7 @@ if (postavaError) {
     document.getElementById("druziny").textContent = "Družiny se nepodařilo načíst: " + skupinyError.message;
   } else {
     document.getElementById("druziny").innerHTML =
-      skupiny.map(g => "<p>⚔️ " + g.name + "</p>").join("");
+      skupiny.map(g => '<p><a href="druzina.html?id=' + g.id + '" style="color:#e8c77a;">⚔️ ' + g.name + '</a></p>').join("");
   }
   }  
   }
