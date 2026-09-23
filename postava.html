@@ -31,6 +31,8 @@
 } else {
       document.getElementById("postava").innerHTML =
   "<h2>" + postava.name + "</h2>" +
+        "<p>Titul: " + (postava.title || "Bez titulu") + "</p>" +
+        "<p>Postava vytvořena: " + new Date(postava.created_at).toLocaleDateString("cs-CZ") + "</p>" +
   "<p>Úroveň: " + postava.level + "</p>" +
   "<p>XP: " + postava.total_xp + "</p>";
     }
