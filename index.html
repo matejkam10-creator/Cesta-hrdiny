@@ -25,16 +25,12 @@
       text-align: center;
     }
 
-    .symbol {
-      font-size: 48px;
-      margin-bottom: 14px;
-    }
+    .symbol { font-size: 48px; margin-bottom: 14px; }
 
     h1 {
       margin: 0;
       font-size: 38px;
       color: #e8c47c;
-      letter-spacing: 1px;
     }
 
     .subtitle {
@@ -47,14 +43,10 @@
       padding: 26px 20px;
       border: 1px solid #66533d;
       border-radius: 18px;
-      background: rgba(20, 17, 22, .88);
-      box-shadow: 0 12px 35px rgba(0,0,0,.35);
+      background: rgba(20,17,22,.88);
     }
 
-    .card h2 {
-      margin-top: 0;
-      color: #f1dfba;
-    }
+    .card h2 { margin-top: 0; color: #f1dfba; }
 
     input {
       width: 100%;
@@ -85,8 +77,12 @@
       font-size: 14px;
     }
 
-    .register span {
-      color: #e8c47c;
+    .register span { color: #e8c47c; }
+
+    #status {
+      min-height: 22px;
+      margin-top: 15px;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -95,6 +91,7 @@
   <main class="page">
     <div class="symbol">⚔️</div>
     <h1>Cesta hrdiny</h1>
+
     <p class="subtitle">
       Vstup do světa dobrodružství.<br>
       Tvůj příběh právě začíná.
@@ -103,15 +100,46 @@
     <section class="card">
       <h2>Přihlášení</h2>
 
-      <input type="email" placeholder="E-mail">
-      <input type="password" placeholder="Heslo">
+      <input id="email" type="email" placeholder="E-mail">
+      <input id="password" type="password" placeholder="Heslo">
 
-      <button>Přihlásit se</button>
+      <button id="login">Přihlásit se</button>
+
+      <div id="status"></div>
 
       <p class="register">
         Ještě nemáš účet? <span>Vytvořit účet</span>
       </p>
     </section>
   </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co/rest/v1/";
+    const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.getElementById("login").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const status = document.getElementById("status");
+
+      status.textContent = "Přihlašuji...";
+
+      const { error } = await client.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        status.textContent = "Přihlášení se nezdařilo: " + error.message;
+        return;
+      }
+
+      status.textContent = "Přihlášení proběhlo úspěšně.";
+    });
+  </script>
 </body>
 </html>
