@@ -15,6 +15,7 @@
   <p>Přihlášení funguje.</p>
 
   <div id="postava">Načítám tvoji postavu...</div>
+  <button id="logout">Odhlásit se</button>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
@@ -36,6 +37,10 @@
   "<p>Úroveň: " + postava.level + "</p>" +
   "<p>XP: " + postava.total_xp + "</p>";
     }
+    document.getElementById("logout").addEventListener("click", async () => {
+  await client.auth.signOut();
+  window.location.href = "index.html";
+});
     </script>
 
 </body>
