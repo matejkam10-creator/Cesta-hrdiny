@@ -126,7 +126,25 @@ if (!user) {
       alert("Člen byl přidán.");
       location.reload();
       });
-    
+   document.getElementById("clenove").addEventListener("click", async (e) => {
+  if (!e.target.classList.contains("odebratClena")) return;
+
+  const characterId = e.target.dataset.id;
+
+  const { error } = await client
+    .from("group_members")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("character_id", characterId);
+
+  if (error) {
+    alert("Člena se nepodařilo odebrat.");
+    return;
+  }
+
+  alert("Člen byl odebrán.");
+  location.reload();
+}); 
   </script>
 </body>
 </html>
