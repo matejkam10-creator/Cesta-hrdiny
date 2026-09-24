@@ -12,6 +12,8 @@
   <h2 id="nazevDruziny">Načítám družinu...</h2>
 
   <div id="obsahDruziny"></div>
+  <textarea id="novyPopis" placeholder="Napiš popis družiny..."></textarea>
+  <button id="ulozitPopis">Uložit popis</button>
   <h3>Členové družiny</h3>
 <div id="clenove">Načítám členy...</div>
 
@@ -71,6 +73,18 @@ if (!user) {
       }
     }
     console.log("Družina načtena správně");
+    document.getElementById("ulozitPopis").addEventListener("click", async () => {
+      const novyPopis = document.getElementById("novyPopis").value.trim();
+      const { error: chybaPopisu } = await client
+  .from("groups")
+  .update({ description: novyPopis })
+  .eq("id", groupId);
+      if (chybaPopisu) {
+  alert("Popis se nepodařilo uložit.");
+  return;
+      }
+      location.reload();
+});
     
   </script>
 </body>
