@@ -100,9 +100,32 @@ if (!user) {
       location.reload();
     
 });
-    document.getElementById("pridatClena").addEventListener("click", () => {
-  alert("Přidávání členů funguje.");
-});
+    document.getElementById("pridatClena").addEventListener("click", async () => {
+      const jmeno = prompt("Zadej přesné jméno hráče, kterého chceš přidat:");
+      if (!jmeno) return;
+      const { data: hledanaPostava, error: chybaHledani } = await client
+        .from("characters")
+        .select("id, name")
+        .eq("name", jmeno)
+        .maybeSingle();
+      if (chybaHledani || !hledanaPostava) {
+          alert("Postava nebyla nalezena.");
+          return;
+      }
+      const { error: chybaPridani } = await client
+        .from("group_members")
+        .insert({
+              group_id: groupId,
+              character_id: hledanaPostava.id,
+              role: "member"
+                  });
+      if (chybaPridani) {
+          alert("Člena se nepodařilo přidat.");
+          return;
+      }
+      alert("Člen byl přidán.");
+      location.reload();
+      });
     
   </script>
 </body>
