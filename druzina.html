@@ -66,7 +66,8 @@ if (!user) {
       }
         if (!postavyError) {
   document.getElementById("clenove").innerHTML =
-    postavyClenu.map(p => "<p>👤 " + p.name + 
+    postavyClenu.map(p => "<p>👤 " + p.name + "</p>").join("");
+                    
       }
     }
   </script>
