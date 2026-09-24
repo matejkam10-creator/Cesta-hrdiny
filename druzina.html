@@ -130,6 +130,7 @@ if (!user) {
   if (!e.target.classList.contains("odebratClena")) return;
 
   const characterId = e.target.dataset.id;
+     if (!confirm("Opravdu chceš tohoto člena odebrat z družiny?")) return;
 
   const { error } = await client
     .from("group_members")
