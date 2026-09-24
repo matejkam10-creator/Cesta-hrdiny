@@ -81,8 +81,9 @@ if (!user) {
       }
         if (!postavyError) {
   document.getElementById("clenove").innerHTML =
-    postavyClenu.map(p => "<p>👤 " + p.name + " — " + (clenove.find(c => c.character_id === p.id)?.role === "captain" ? "Kapitán" : "Člen") + "</p>").join("");
-                    
+    postavyClenu.map(p => "<p>👤 " + p.name + " — " + (clenove.find(c => c.character_id === p.id)?.role === "captain" ? "Kapitán" : "Člen") + (jeKapitan && clenove.find(c => c.character_id === p.id)?.role !== "captain" ? ' <button class="odebratClena" data-id="' + p.id + '">Odebrat</button>' : "") + "</p>").join("");
+         
+        
       }
     }
     console.log("Družina načtena správně");
