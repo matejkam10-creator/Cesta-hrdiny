@@ -12,8 +12,8 @@
   <h2 id="nazevDruziny">Načítám družinu...</h2>
 
   <div id="obsahDruziny"></div>
-  <textarea id="novyPopis" placeholder="Napiš popis družiny..."></textarea>
-  <button id="ulozitPopis">Uložit popis</button>
+  <textarea id="novyPopis" style="display:none"
+  <button id="ulozitPopis" style="display:none">
   <h3>Členové družiny</h3>
 <div id="clenove">Načítám členy...</div>
 
@@ -30,6 +30,11 @@ const groupId = params.get("id");
 if (!user) {
   window.location.href = "index.html";
 }
+ const { data: postava } = await client  
+      .from("characters")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
     const { data: druzina, error } = await client
   .from("groups")
   .select("id, name, description")
@@ -56,6 +61,11 @@ if (!user) {
     "Družina zatím nemá žádné členy.";
     }
     if (!clenoveError && clenove.length > 0) {
+    const jeKapitan = clenove.some(c => c.role === "captain" && c.character_id === postava.id);
+    if (jeKapitan) {
+    document.getElementById("novyPopis").style.display = "inline-block";
+    document.getElementById("ulozitPopis").style.display = "inline-block";
+    }
   const idsClenu = clenove.map(c => c.character_id);
 
   const { data: postavyClenu, error: postavyError } = await client
