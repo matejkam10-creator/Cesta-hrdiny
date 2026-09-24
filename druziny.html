@@ -101,6 +101,7 @@ const { data: novaDruzina, error: chybaDruziny } = await client
 
 document.getElementById("zprava").textContent =
   "Družina byla úspěšně vytvořena!";
+    window.location.href = "druzina.html?id=" + novaDruzina.id;
     });
 </script>
 </body>
