@@ -71,10 +71,7 @@ if (!user) {
       }
     }
     console.log("Družina načtena správně");
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) {
-      window.location.href = "index.html";
-    }
+    
   </script>
 </body>
 </html>
