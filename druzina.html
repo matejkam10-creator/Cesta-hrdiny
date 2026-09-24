@@ -35,7 +35,11 @@ if (!user) {
     .select("id")
     .eq("user_id", user.id)
     .single();
-    
+    const { data: druzina, error } = await client
+  .from("groups")
+  .select("id, name, description")
+  .eq("id", groupId)
+  .single();
     if (error) {
   document.getElementById("nazevDruziny").textContent =
     "Družinu se nepodařilo načíst.";
