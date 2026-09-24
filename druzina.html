@@ -12,6 +12,8 @@
   <h2 id="nazevDruziny">Načítám družinu...</h2>
 
   <div id="obsahDruziny"></div>
+  <h3>Členové družiny</h3>
+<div id="clenove">Načítám členy...</div>
 
   <p><a href="druziny.html" style="color:#e8c77a;">← Zpět na moje družiny</a></p>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -38,6 +40,34 @@ if (!user) {
   document.getElementById("nazevDruziny").textContent = druzina.name;
   document.getElementById("obsahDruziny").textContent =
     druzina.description || "Družina zatím nemá popis.";
+    }
+    const { data: clenove, error: clenoveError } = await client
+  .from("group_members")
+  .select("character_id, role")
+  .eq("group_id", groupId);
+    if (clenoveError) {
+  document.getElementById("clenove").textContent =
+    "Členy se nepodařilo načíst.";
+    }
+    if (!clenoveError && clenove.length === 0) {
+  document.getElementById("clenove").textContent =
+    "Družina zatím nemá žádné členy.";
+    }
+    if (!clenoveError && clenove.length > 0) {
+  const idsClenu = clenove.map(c => c.character_id);
+
+  const { data: postavyClenu, error: postavyError } = await client
+    .from("characters")
+    .select("id, name")
+    .in("id", idsClenu);
+      if (postavyError) {
+  document.getElementById("clenove").textContent =
+    "Jména členů se nepodařilo načíst.";
+      }
+        if (!postavyError) {
+  document.getElementById("clenove").innerHTML =
+    postavyClenu.map(p => "<p>👤 " + p.name + 
+      }
     }
   </script>
 </body>
