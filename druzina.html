@@ -35,11 +35,7 @@ if (!user) {
     .select("id")
     .eq("user_id", user.id)
     .single();
-    const { data: druzina, error } = await client
-  .from("groups")
-  .select("id, name, description")
-  .eq("id", groupId)
-  .single();
+    
     if (error) {
   document.getElementById("nazevDruziny").textContent =
     "Družinu se nepodařilo načíst.";
@@ -61,11 +57,11 @@ if (!user) {
     "Družina zatím nemá žádné členy.";
     }
     if (!clenoveError && clenove.length > 0) {
-    const jeKapitan = clenove.some(c => c.role === "captain" && c.character_id === postava.id);
-    if (jeKapitan) {
+    
+    
     document.getElementById("novyPopis").style.display = "inline-block";
     document.getElementById("ulozitPopis").style.display = "inline-block";
-    }
+    
   const idsClenu = clenove.map(c => c.character_id);
 
   const { data: postavyClenu, error: postavyError } = await client
