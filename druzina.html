@@ -66,7 +66,7 @@ if (!user) {
       }
         if (!postavyError) {
   document.getElementById("clenove").innerHTML =
-    postavyClenu.map(p => "<p>👤 " + p.name + "</p>").join("");
+    postavyClenu.map(p => "<p>👤 " + p.name + " — " + (clenove.find(c => c.character_id === p.id)?.role === "captain" ? "Kapitán" : "Člen") + "</p>").join("");
                     
       }
     }
