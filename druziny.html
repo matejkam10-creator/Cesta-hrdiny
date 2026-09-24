@@ -30,7 +30,7 @@ if (!user) {
 }
   const { data: postava, error: postavaError } = await client
   .from("characters")
-  .select("id")
+  .select("id, level")
   .eq("user_id", user.id)
   .single();
 
@@ -69,7 +69,11 @@ if (postavaError) {
   }
   document.getElementById("vytvorDruzinu").addEventListener("click", async () => {
   const nazev = document.getElementById("nazevDruziny").value.trim();
-
+if (postava.level < 10) {
+  document.getElementById("zprava").textContent =
+    "Družinu můžeš založit až od úrovně 10.";
+  return;
+}
   if (!nazev) {
     document.getElementById("zprava").textContent = "Napiš název družiny.";
     return;
