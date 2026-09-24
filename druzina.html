@@ -57,11 +57,12 @@ if (!user) {
     "Družina zatím nemá žádné členy.";
     }
     if (!clenoveError && clenove.length > 0) {
-    
+    const jeKapitan = clenove.some(c => c.role === "captain" && c.character_id === postava.id);
+    if (jeKapitan) {
     
     document.getElementById("novyPopis").style.display = "inline-block";
     document.getElementById("ulozitPopis").style.display = "inline-block";
-    
+    }
   const idsClenu = clenove.map(c => c.character_id);
 
   const { data: postavyClenu, error: postavyError } = await client
