@@ -118,7 +118,8 @@ if (!user) {
               role: "member"
                   });
       if (chybaPridani) {
-          alert("Člena se nepodařilo přidat.");
+          console.log(chybaPridani);
+          alert("Chyba: " + chybaPridani.message);
           return;
       }
       alert("Člen byl přidán.");
