@@ -47,6 +47,7 @@ if (!user) {
   document.getElementById("nazevDruziny").textContent = druzina.name;
   document.getElementById("obsahDruziny").textContent =
     druzina.description || "Družina zatím nemá popis.";
+      document.getElementById("novyPopis").value = druzina.description || "";
     }
     const { data: clenove, error: clenoveError } = await client
   .from("group_members")
