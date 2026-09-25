@@ -4,25 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Moje postava | Cesta hrdiny</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 32px 18px; background: #0b0910; color: #e8c77a; text-align: center; font-family: Georgia, serif; }
+    main { max-width: 560px; margin: auto; }
+    .karta { padding: 22px; border: 1px solid #66533d; border-radius: 16px; background: #17141c; }
+    .avatar { display: block; width: 110px; height: 110px; margin: auto; border-radius: 50%; object-fit: cover; }
+    input, textarea { display: block; width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #66533d; border-radius: 8px; background: #0e0d10; color: #fff; font: inherit; }
+    textarea { min-height: 100px; resize: vertical; }
+    button { padding: 10px 18px; margin: 8px; cursor: pointer; }
+    a { color: #e8c77a; }
+    #popis { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
 </head>
 
-<body style="background:#0b0910;color:#e8c77a;text-align:center;padding:50px;font-family:Georgia,serif;">
-
+<body>
+<main>
   <h1>⚔️ Cesta hrdiny</h1>
-
   <h2>Moje postava</h2>
-
-  <p>Přihlášení funguje.</p>
-
-  <div id="postava">Načítám tvoji postavu...</div>
+  <section id="postava" class="karta">Načítám tvoji postavu...</section>
+  <form id="upravitProfil" class="karta" style="display:none;margin-top:16px;">
+    <h3>Upravit profil</h3>
+    <label for="prezdivka">Přezdívka (2–30 znaků)</label>
+    <input id="prezdivka" maxlength="30" placeholder="Jak ti mají říkat?">
+    <label for="popisProfilu">Popis postavy (nejvýše 500 znaků)</label>
+    <textarea id="popisProfilu" maxlength="500" placeholder="Napiš něco o své postavě"></textarea>
+    <button type="submit">Uložit profil</button>
+    <p id="stavProfilu" role="status"></p>
+  </form>
   <p><a href="druziny.html" style="color:#e8c77a;">⚔️ Moje družiny</a></p>
   <button id="logout">Odhlásit se</button>
+</main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data: { user } } = await client.auth.getUser();
+    if (!user) {
+      window.location.replace("index.html");
+    } else {
     const { data: postava, error } = await client
   .from("characters")
   .select("*")
@@ -31,12 +52,60 @@
     if (error) {
   document.getElementById("postava").textContent = "Postavu se nepodařilo načíst.";
 } else {
-      document.getElementById("postava").innerHTML =
-  "<h2>" + postava.name + "</h2>" +
-        "<p>Titul: " + (postava.title || "Bez titulu") + "</p>" +
-        "<p>Postava vytvořena: " + new Date(postava.created_at).toLocaleDateString("cs-CZ") + "</p>" +
-  "<p>Úroveň: " + postava.level + "</p>" +
-  "<p>XP: " + postava.total_xp + "</p>";
+      const karta = document.getElementById("postava");
+      karta.replaceChildren();
+      const jmeno = document.createElement("h2");
+      const skutecneJmeno = document.createElement("p");
+      const titul = document.createElement("p");
+      const datum = document.createElement("p");
+      const uroven = document.createElement("p");
+      const xp = document.createElement("p");
+      const popis = document.createElement("p");
+      popis.id = "popis";
+      jmeno.textContent = postava.nickname || postava.name;
+      skutecneJmeno.textContent = "Postava: " + postava.name;
+      titul.textContent = "Titul: " + (postava.title || "Bez titulu");
+      datum.textContent = "Postava vytvořena: " + new Date(postava.created_at).toLocaleDateString("cs-CZ");
+      uroven.textContent = "Úroveň: " + postava.level;
+      xp.textContent = "XP: " + postava.total_xp;
+      popis.textContent = postava.description || "Zatím bez popisu.";
+      if (postava.avatar_url) {
+        const obrazek = document.createElement("img");
+        obrazek.className = "avatar";
+        obrazek.alt = "Avatar postavy";
+        obrazek.src = postava.avatar_url;
+        karta.append(obrazek);
+      }
+      karta.append(jmeno, skutecneJmeno, titul, datum, uroven, xp, popis);
+
+      const formular = document.getElementById("upravitProfil");
+      formular.style.display = "block";
+      document.getElementById("prezdivka").value = postava.nickname || "";
+      document.getElementById("popisProfilu").value = postava.description || "";
+      formular.addEventListener("submit", async (udalost) => {
+        udalost.preventDefault();
+        const nickname = document.getElementById("prezdivka").value.trim();
+        const description = document.getElementById("popisProfilu").value.trim();
+        const stav = document.getElementById("stavProfilu");
+        if (nickname && nickname.length < 2) {
+          stav.textContent = "Přezdívka musí mít alespoň 2 znaky.";
+          return;
+        }
+        const tlacitko = formular.querySelector("button");
+        tlacitko.disabled = true;
+        const { error: chybaUlozeni } = await client.from("characters")
+          .update({ nickname: nickname || null, description: description || null })
+          .eq("id", postava.id);
+        tlacitko.disabled = false;
+        if (chybaUlozeni) {
+          stav.textContent = "Profil se nepodařilo uložit: " + chybaUlozeni.message;
+          return;
+        }
+        jmeno.textContent = nickname || postava.name;
+        popis.textContent = description || "Zatím bez popisu.";
+        stav.textContent = "Profil byl uložen.";
+      });
+    }
     }
     document.getElementById("logout").addEventListener("click", async () => {
   await client.auth.signOut();
