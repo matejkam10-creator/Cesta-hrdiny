@@ -44,6 +44,10 @@
       }
     }
     async function loadPending() {
+      await loadPersonalPending();
+      await loadGroupPending();
+    }
+    async function loadPersonalPending() {
       list.replaceChildren();
       status.textContent = "Načítám čekající řešení...";
       const { data: submissions, error } = await client.from("submissions")
@@ -134,6 +138,89 @@
         card.append(comment, approve, reject, message);
         list.append(card);
       }
+    }
+    async function loadGroupPending() {
+      const { data: submissions, error } = await client.from("group_submissions")
+        .select("id, group_id, quest_id, answer, created_at")
+        .eq("status", "pending").order("created_at", { ascending: true });
+      if (error) { status.textContent += " Družinová řešení se nepodařilo načíst: " + error.message; return; }
+      if (!submissions?.length) {
+        status.textContent = list.children.length ? `Čekající řešení: ${list.children.length}` : "Žádná řešení nečekají na kontrolu.";
+        return;
+      }
+      const [groupsResult, questsResult, membersResult] = await Promise.all([
+        client.from("groups").select("id, name").in("id", [...new Set(submissions.map(s => s.group_id))]),
+        client.from("quests").select("id, name, xp_reward").in("id", [...new Set(submissions.map(s => s.quest_id))]),
+        client.from("group_submission_members").select("submission_id, character_id")
+          .in("submission_id", submissions.map(s => s.id))
+      ]);
+      if (groupsResult.error || questsResult.error || membersResult.error) {
+        status.textContent += " Podrobnosti družinových řešení se nepodařilo načíst.";
+        return;
+      }
+      const members = membersResult.data;
+      const { data: characters, error: characterError } = members.length
+        ? await client.from("characters").select("id, name, nickname")
+            .in("id", [...new Set(members.map(m => m.character_id))])
+        : { data: [], error: null };
+      if (characterError) { status.textContent += " Členy družiny se nepodařilo načíst."; return; }
+      const groupById = new Map(groupsResult.data.map(g => [g.id, g]));
+      const questById = new Map(questsResult.data.map(q => [q.id, q]));
+      const characterById = new Map(characters.map(c => [c.id, c]));
+      for (const submission of submissions) {
+        const group = groupById.get(submission.group_id);
+        const quest = questById.get(submission.quest_id);
+        const names = members.filter(m => m.submission_id === submission.id)
+          .map(m => characterById.get(m.character_id))
+          .map(c => c?.nickname || c?.name || "Neznámá postava");
+        const card = document.createElement("article");
+        card.className = "card";
+        const title = document.createElement("h2");
+        title.textContent = "Družina: " + (group?.name || "Neznámá družina") + " · " + (quest?.name || "Neznámý úkol");
+        const meta = document.createElement("p");
+        meta.className = "meta";
+        meta.textContent = `${new Date(submission.created_at).toLocaleString("cs-CZ")} · ${quest?.xp_reward ?? 0} XP pro každého člena`;
+        const roster = document.createElement("p");
+        roster.textContent = "Odměnu dostanou: " + (names.join(", ") || "Nikdo – schválení není možné");
+        const answer = document.createElement("p");
+        answer.className = "answer";
+        answer.textContent = submission.answer;
+        const comment = document.createElement("textarea");
+        comment.maxLength = 1000;
+        comment.placeholder = "Důvod vrácení (povinný jen při vrácení)";
+        comment.setAttribute("aria-label", "Komentář k družinovému řešení");
+        const approve = document.createElement("button");
+        approve.textContent = "Schválit družině";
+        approve.disabled = !names.length;
+        const reject = document.createElement("button");
+        reject.className = "reject";
+        reject.textContent = "Vrátit k opravě";
+        const message = document.createElement("p");
+        message.setAttribute("role", "status");
+        async function review(accepted) {
+          if (!accepted && comment.value.trim().length < 3) {
+            message.textContent = "Napiš důvod vrácení (alespoň 3 znaky).";
+            return;
+          }
+          approve.disabled = reject.disabled = true;
+          message.textContent = "Ukládám rozhodnutí...";
+          const { error: reviewError } = await client.rpc("review_group_submission", {
+            p_submission_id: submission.id,
+            p_approve: accepted,
+            p_comment: comment.value.trim() || null
+          });
+          if (reviewError) {
+            message.textContent = "Rozhodnutí se nepodařilo uložit: " + reviewError.message;
+            approve.disabled = !names.length;
+            reject.disabled = false;
+          } else await loadPending();
+        }
+        approve.addEventListener("click", () => review(true));
+        reject.addEventListener("click", () => review(false));
+        card.append(title, meta, roster, answer, comment, approve, reject, message);
+        list.append(card);
+      }
+      status.textContent = `Čekající řešení: ${list.children.length}`;
     }
   </script>
 </body>

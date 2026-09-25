@@ -37,9 +37,9 @@
     dialog::backdrop { background: #000a; }
     #questText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
     .close { padding: 10px 18px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
-    #questForm textarea, #photoFile { display: block; width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; }
-    #questForm textarea { min-height: 130px; resize: vertical; }
-    #questForm button, #photoUpload { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
+    #questForm textarea, #groupQuestForm textarea, #groupSelect, #photoFile { display: block; width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; }
+    #questForm textarea, #groupQuestForm textarea { min-height: 130px; resize: vertical; }
+    #questForm button, #groupQuestForm button, #photoUpload { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
     #questForm button:disabled, #photoUpload:disabled { opacity: .6; }
     @media (max-width: 760px) { main { display: flex; flex-direction: column; } main > * { width: 100%; } aside { position: static; order: -1; } .map { height: min(72vh, 580px); min-height: 390px; } }
   </style>
@@ -72,6 +72,16 @@
       <textarea id="questAnswer" minlength="10" maxlength="5000" required></textarea>
       <button type="submit">Odevzdat řešení</button>
     </form>
+    <div id="groupSection" hidden>
+      <label for="groupSelect">Tvoje družina</label>
+      <select id="groupSelect"></select>
+      <p id="groupStatus" role="status"></p>
+      <form id="groupQuestForm" hidden>
+        <label for="groupAnswer">Společné řešení družiny (10–5000 znaků)</label>
+        <textarea id="groupAnswer" minlength="10" maxlength="5000" required></textarea>
+        <button type="submit">Odevzdat za družinu</button>
+      </form>
+    </div>
     <div id="photoSection" hidden>
       <label for="photoFile">Fotka k řešení (nepovinná; JPG, PNG nebo WebP do 5 MB)</label>
       <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp">
@@ -113,7 +123,7 @@
         stats.textContent = `Úroveň ${character.level} · ${character.total_xp} XP`;
         profile.append(name, stats);
         const { data: memberships, error: membershipError } = await client.from("group_members")
-          .select("group_id").eq("character_id", character.id).limit(1);
+          .select("group_id, role").eq("character_id", character.id);
         const member = !membershipError && (memberships?.length ?? 0) > 0;
         const { data: maps, error: mapsError } = await client.from("maps")
           .select("id, name, description, required_level, order_index")
@@ -129,6 +139,60 @@
           let chosenQuest = null;
           let currentSubmissionId = null;
           const questForm = document.getElementById("questForm");
+          const groupSection = document.getElementById("groupSection");
+          const groupSelect = document.getElementById("groupSelect");
+          const groupQuestForm = document.getElementById("groupQuestForm");
+          const groupStatus = document.getElementById("groupStatus");
+          if (member) {
+            const { data: groups } = await client.from("groups").select("id, name")
+              .in("id", memberships.map(m => m.group_id));
+            for (const membership of memberships) {
+              const option = document.createElement("option");
+              option.value = membership.group_id;
+              option.textContent = groups?.find(g => g.id === membership.group_id)?.name || "Družina";
+              groupSelect.append(option);
+            }
+          }
+          async function loadGroupQuestStatus() {
+            if (!chosenQuest?.is_group_quest || !groupSelect.value) return;
+            const questId = chosenQuest.id;
+            const groupId = groupSelect.value;
+            groupQuestForm.hidden = true;
+            groupStatus.textContent = "Načítám stav družinového úkolu...";
+            const { data: submissions, error } = await client.from("group_submissions")
+              .select("status, review_comment").eq("group_id", groupId)
+              .eq("quest_id", questId).order("created_at", { ascending: false }).limit(1);
+            if (chosenQuest?.id !== questId || groupSelect.value !== groupId) return;
+            if (error) { groupStatus.textContent = "Stav úkolu se nepodařilo načíst: " + error.message; return; }
+            const submission = submissions?.[0];
+            if (submission?.status === "pending") groupStatus.textContent = "Řešení družiny čeká na schválení.";
+            else if (submission?.status === "approved") groupStatus.textContent = "Úkol už má družina schválený. XP získali členové při odevzdání.";
+            else if (memberships.find(m => m.group_id === groupId)?.role !== "captain")
+              groupStatus.textContent = "Za družinu odevzdává řešení kapitán.";
+            else if (character.level < chosenQuest.required_level)
+              groupStatus.textContent = `Kapitán potřebuje úroveň ${chosenQuest.required_level}.`;
+            else {
+              groupStatus.textContent = submission?.status === "returned"
+                ? "Řešení bylo vráceno: " + (submission.review_comment || "Bez komentáře") : "XP po schválení získají všichni současní členové družiny.";
+              groupQuestForm.hidden = false;
+            }
+          }
+          groupSelect.addEventListener("change", loadGroupQuestStatus);
+          groupQuestForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            if (!chosenQuest?.is_group_quest || !groupSelect.value) return;
+            const button = groupQuestForm.querySelector("button");
+            button.disabled = true;
+            groupStatus.textContent = "Odesílám řešení družiny...";
+            const { error } = await client.rpc("submit_group_quest", {
+              p_group_id: groupSelect.value,
+              p_quest_id: chosenQuest.id,
+              p_answer: document.getElementById("groupAnswer").value.trim()
+            });
+            button.disabled = false;
+            if (error) groupStatus.textContent = "Řešení se nepodařilo odeslat: " + error.message;
+            else { groupQuestForm.hidden = true; groupStatus.textContent = "Řešení družiny čeká na schválení."; }
+          });
           const questStatus = document.getElementById("questStatus");
           const photoSection = document.getElementById("photoSection");
           const photoFile = document.getElementById("photoFile");
@@ -255,6 +319,8 @@
                   (quest.is_group_quest ? " · Družinový úkol" : "");
                 questForm.hidden = true;
                 questForm.reset();
+                groupSection.hidden = true;
+                groupQuestForm.reset();
                 photoSection.hidden = true;
                 photoFile.value = "";
                 photoFile.hidden = false;
@@ -264,7 +330,13 @@
                 questStatus.textContent = "Načítám stav úkolu...";
                 document.getElementById("questDialog").showModal();
                 if (quest.is_group_quest) {
-                  questStatus.textContent = "Družinové úkoly bude za celou družinu odevzdávat kapitán.";
+                  questStatus.textContent = "Družinový úkol";
+                  if (!member || !groupSelect.options.length) {
+                    questStatus.textContent = "Nejdřív se přidej do družiny.";
+                    return;
+                  }
+                  groupSection.hidden = false;
+                  await loadGroupQuestStatus();
                   return;
                 }
                 if (character.level < quest.required_level) {
