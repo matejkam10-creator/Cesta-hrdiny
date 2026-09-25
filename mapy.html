@@ -36,9 +36,10 @@
     dialog::backdrop { background: #000a; }
     #questText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
     .close { padding: 10px 18px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
-    #questForm textarea { display: block; width: 100%; min-height: 130px; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; resize: vertical; }
-    #questForm button { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
-    #questForm button:disabled { opacity: .6; }
+    #questForm textarea, #photoFile { display: block; width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; }
+    #questForm textarea { min-height: 130px; resize: vertical; }
+    #questForm button, #photoUpload { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
+    #questForm button:disabled, #photoUpload:disabled { opacity: .6; }
     @media (max-width: 760px) { main { display: flex; flex-direction: column; } main > * { width: 100%; } aside { position: static; order: -1; } .map { height: min(72vh, 580px); min-height: 390px; } }
   </style>
 </head>
@@ -70,6 +71,13 @@
       <textarea id="questAnswer" minlength="10" maxlength="5000" required></textarea>
       <button type="submit">Odevzdat řešení</button>
     </form>
+    <div id="photoSection" hidden>
+      <label for="photoFile">Fotka k řešení (nepovinná; JPG, PNG nebo WebP do 5 MB)</label>
+      <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp">
+      <button id="photoUpload" type="button" hidden>Přidat fotku k řešení</button>
+      <p id="photoStatus" role="status"></p>
+      <a id="photoLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Zobrazit přiloženou fotku</a>
+    </div>
     <form method="dialog"><button class="close">Zavřít</button></form>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -115,15 +123,79 @@
           const view = document.getElementById("mapView");
           const locked = m => character.level < m.required_level || (m.required_level >= 10 && !member);
           let chosenQuest = null;
+          let currentSubmissionId = null;
           const questForm = document.getElementById("questForm");
           const questStatus = document.getElementById("questStatus");
+          const photoSection = document.getElementById("photoSection");
+          const photoFile = document.getElementById("photoFile");
+          const photoUpload = document.getElementById("photoUpload");
+          const photoStatus = document.getElementById("photoStatus");
+          const photoLink = document.getElementById("photoLink");
+          async function showPhotoLink(path) {
+            const { data, error } = await client.storage.from("quest-evidence")
+              .createSignedUrl(path, 300);
+            if (error) throw error;
+            photoLink.href = data.signedUrl;
+            photoLink.hidden = false;
+            photoFile.hidden = true;
+            photoUpload.hidden = true;
+          }
+          async function uploadPhoto() {
+            const file = photoFile.files[0];
+            const submissionId = currentSubmissionId;
+            if (!file) {
+              photoStatus.textContent = "Nejdřív vyber fotku.";
+              return;
+            }
+            if (!submissionId) return;
+            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+              photoStatus.textContent = "Vyber obrázek JPG, PNG nebo WebP do 5 MB.";
+              return;
+            }
+            photoUpload.disabled = true;
+            photoStatus.textContent = "Nahrávám fotku...";
+            try {
+              const original = await createImageBitmap(file);
+              const ratio = Math.min(1, 1600 / Math.max(original.width, original.height));
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.max(1, Math.round(original.width * ratio));
+              canvas.height = Math.max(1, Math.round(original.height * ratio));
+              const ctx = canvas.getContext("2d");
+              if (!ctx) throw new Error("Fotku se nepodařilo zpracovat.");
+              ctx.fillStyle = "#fff";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
+              original.close();
+              const blob = await new Promise((resolve, reject) => canvas.toBlob(
+                b => b ? resolve(b) : reject(new Error("Fotku se nepodařilo zpracovat.")), "image/jpeg", 0.85
+              ));
+              if (blob.size > 5 * 1024 * 1024) throw new Error("Fotka je příliš velká.");
+              const path = user.id + "/" + submissionId + ".jpg";
+              const { error: uploadError } = await client.storage.from("quest-evidence")
+                .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+              if (uploadError && String(uploadError.statusCode) !== "409") throw uploadError;
+              const { error: linkError } = await client.rpc("attach_submission_photo", {
+                p_submission_id: submissionId
+              });
+              if (linkError) throw linkError;
+              if (currentSubmissionId !== submissionId) return;
+              await showPhotoLink(path);
+              photoStatus.textContent = "Fotka byla přiložena k řešení.";
+            } catch (error) {
+              photoStatus.textContent = "Fotku se nepodařilo přiložit: " + error.message;
+              photoUpload.hidden = false;
+            } finally {
+              photoUpload.disabled = false;
+            }
+          }
+          photoUpload.addEventListener("click", uploadPhoto);
           questForm.addEventListener("submit", async event => {
             event.preventDefault();
             if (!chosenQuest) return;
             const button = questForm.querySelector("button");
             button.disabled = true;
             questStatus.textContent = "Odesílám řešení...";
-            const { error } = await client.rpc("submit_personal_quest", {
+            const { data: submissionId, error } = await client.rpc("submit_personal_quest", {
               p_quest_id: chosenQuest.id,
               p_text: document.getElementById("questAnswer").value.trim()
             });
@@ -131,8 +203,11 @@
             if (error) {
               questStatus.textContent = "Řešení se nepodařilo odeslat: " + error.message;
             } else {
+              currentSubmissionId = submissionId;
               questForm.hidden = true;
               questStatus.textContent = "Řešení bylo odesláno a čeká na schválení. XP se připíše až po schválení.";
+              photoUpload.hidden = false;
+              if (photoFile.files.length) await uploadPhoto();
             }
           });
           async function showMap(map, chosenTab) {
@@ -167,6 +242,7 @@
               marker.setAttribute("aria-label", "Úkol: " + quest.name);
               marker.addEventListener("click", async () => {
                 chosenQuest = quest;
+                currentSubmissionId = null;
                 document.getElementById("questTitle").textContent = quest.name;
                 document.getElementById("questText").textContent = quest.description;
                 const difficult = { easy: "Lehká", medium: "Střední", hard: "Těžká" };
@@ -175,6 +251,12 @@
                   (quest.is_group_quest ? " · Družinový úkol" : "");
                 questForm.hidden = true;
                 questForm.reset();
+                photoSection.hidden = true;
+                photoFile.value = "";
+                photoFile.hidden = false;
+                photoUpload.hidden = true;
+                photoLink.hidden = true;
+                photoStatus.textContent = "";
                 questStatus.textContent = "Načítám stav úkolu...";
                 document.getElementById("questDialog").showModal();
                 if (quest.is_group_quest) {
@@ -186,7 +268,7 @@
                   return;
                 }
                 const { data: assignments, error: assignmentError } = await client
-                  .from("quest_assignments").select("status")
+                  .from("quest_assignments").select("id, status")
                   .eq("quest_id", quest.id).eq("character_id", character.id)
                   .order("taken_at", { ascending: false }).limit(1);
                 if (chosenQuest !== quest || !document.getElementById("questDialog").open) return;
@@ -195,11 +277,33 @@
                   return;
                 }
                 const status = assignments?.[0]?.status;
-                if (status === "submitted") questStatus.textContent = "Tvoje řešení čeká na schválení.";
+                if (status === "submitted") {
+                  questStatus.textContent = "Tvoje řešení čeká na schválení.";
+                  const { data: submissions, error: submissionError } = await client
+                    .from("submissions").select("id")
+                    .eq("assignment_id", assignments[0].id)
+                    .order("created_at", { ascending: false }).limit(1);
+                  if (chosenQuest !== quest || !document.getElementById("questDialog").open) return;
+                  if (submissionError || !submissions?.length) {
+                    photoStatus.textContent = "Přílohy se nepodařilo načíst.";
+                    return;
+                  }
+                  currentSubmissionId = submissions[0].id;
+                  photoSection.hidden = false;
+                  const { data: files, error: filesError } = await client
+                    .from("submission_files").select("file_url")
+                    .eq("submission_id", currentSubmissionId).limit(1);
+                  if (filesError) photoStatus.textContent = "Přílohy se nepodařilo načíst.";
+                  else if (files?.length) {
+                    try { await showPhotoLink(files[0].file_url); }
+                    catch (error) { photoStatus.textContent = "Fotku se nepodařilo otevřít: " + error.message; }
+                  } else photoUpload.hidden = false;
+                }
                 else if (status === "approved") questStatus.textContent = "Úkol už máš schválený.";
                 else {
                   questStatus.textContent = status === "rejected" ? "Předchozí řešení bylo vráceno. Další pokus závisí na limitu úkolu." : "";
                   questForm.hidden = false;
+                  photoSection.hidden = false;
                 }
               });
               view.append(marker);
