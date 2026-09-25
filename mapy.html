@@ -32,6 +32,7 @@
     .empty { position: absolute; bottom: 22px; left: 24px; right: 24px; z-index: 1; padding: 12px; border-radius: 9px; background: #16141ad9; color: #fff1ca; text-align: center; }
     aside { position: sticky; top: 18px; text-align: center; }
     .avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 2px solid #e4c48a; }
+    #profile progress { display: block; width: 100%; height: 16px; accent-color: #b38b4b; }
     .note { color: #c9bda8; font-size: 14px; }
     dialog { width: min(92vw, 560px); padding: 24px; border: 1px solid #bd9a62; border-radius: 16px; background: #211b25; color: #f4e4c4; }
     dialog::backdrop { background: #000a; }
@@ -47,7 +48,7 @@
 <body>
   <header><div class="header-inner">
     <h1>⚔️ Cesta hrdiny</h1>
-    <nav><a href="postava.html">Moje postava</a><a href="historie.html">Moje úkoly</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
+    <nav><a href="postava.html">Moje postava</a><a href="urovne.html">Úrovně</a><a href="historie.html">Moje úkoly</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
   </div></header>
   <main>
     <section class="panel" aria-labelledby="mapTitle">
@@ -122,6 +123,26 @@
         const stats = document.createElement("p");
         stats.textContent = `Úroveň ${character.level} · ${character.total_xp} XP`;
         profile.append(name, stats);
+        const { data: nearbyLevels } = await client.from("levels")
+          .select("level, required_xp").eq("is_active", true)
+          .in("level", [character.level, character.level + 1]);
+        const currentLevel = nearbyLevels?.find(l => l.level === character.level);
+        const nextLevel = nearbyLevels?.find(l => l.level === character.level + 1);
+        if (currentLevel && nextLevel) {
+          const bar = document.createElement("progress");
+          bar.max = Math.max(1, nextLevel.required_xp - currentLevel.required_xp);
+          bar.value = Math.max(0, Math.min(bar.max, character.total_xp - currentLevel.required_xp));
+          bar.setAttribute("aria-label", "Postup k další úrovni");
+          const nextText = document.createElement("p");
+          nextText.textContent = character.total_xp < currentLevel.required_xp
+            ? `Úroveň byla nastavena ručně. Do její hranice zbývá ${(currentLevel.required_xp - character.total_xp).toLocaleString("cs-CZ")} XP.`
+            : `Do úrovně ${nextLevel.level} zbývá ${Math.max(0, nextLevel.required_xp - character.total_xp).toLocaleString("cs-CZ")} XP`;
+          profile.append(bar, nextText);
+        } else if (character.level >= 100) {
+          const maxText = document.createElement("p");
+          maxText.textContent = "Nejvyšší úroveň dosažena";
+          profile.append(maxText);
+        }
         const { data: memberships, error: membershipError } = await client.from("group_members")
           .select("group_id, role").eq("character_id", character.id);
         const member = !membershipError && (memberships?.length ?? 0) > 0;

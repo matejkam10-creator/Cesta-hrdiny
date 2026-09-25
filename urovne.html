@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Úrovně a XP | Cesta hrdiny</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f4e4c4; font-family: Georgia, serif; }
+    main { max-width: 850px; margin: 24px auto; padding: 0 16px 50px; }
+    h1, h2 { color: #efd49b; }
+    a { color: #efd49b; }
+    .card { margin: 18px 0; padding: 20px; border: 1px solid #6a573f; border-radius: 16px; background: #1b1720; }
+    progress { display: block; width: 100%; height: 22px; accent-color: #b38b4b; }
+    label { display: block; margin: 16px 0 8px; }
+    select { width: 100%; padding: 12px; border: 1px solid #a88a61; border-radius: 8px; background: #1b1720; color: #f4e4c4; font: inherit; }
+    input[type="number"] { width: 100%; padding: 12px; border: 1px solid #a88a61; border-radius: 8px; background: #1b1720; color: #f4e4c4; font: inherit; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid #594a39; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    tr.current { background: #6c512b; font-weight: bold; }
+    .muted { color: #cdbd9e; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="mapy.html">← Zpět na mapy</a></p>
+    <h1>Úrovně a zkušenosti</h1>
+    <p id="status" role="status">Načítám úrovně...</p>
+    <section id="progressCard" class="card" hidden>
+      <h2 id="characterName"></h2>
+      <p id="levelInfo"></p>
+      <progress id="levelProgress" value="0" max="1" aria-label="Postup k další úrovni"></progress>
+      <p id="progressInfo"></p>
+    </section>
+    <section class="card">
+      <h2>Hranice XP</h2>
+      <p class="muted">Jde o celkové nasbírané XP potřebné k dosažení úrovně.</p>
+      <label for="levelRange">Zobrazit úrovně</label>
+      <select id="levelRange"></select>
+      <table>
+        <thead><tr><th>Úroveň</th><th>Celkem XP</th><th>Od předchozí</th></tr></thead>
+        <tbody id="levelRows"></tbody>
+      </table>
+    </section>
+    <section id="rewardCard" class="card" hidden>
+      <h2>Doporučené XP pro nový úkol</h2>
+      <p class="muted">Pomůcka pro admina při tvorbě nových úkolů. Odměny existujících úkolů se nemění.</p>
+      <label for="rewardLevel">Požadovaná úroveň</label>
+      <input id="rewardLevel" type="number" min="1" max="100" value="1">
+      <label for="rewardDifficulty">Obtížnost</label>
+      <select id="rewardDifficulty">
+        <option value="1">Lehká</option>
+        <option value="2">Střední</option>
+        <option value="3">Těžká</option>
+      </select>
+      <p><label><input id="rewardGroup" type="checkbox"> Družinový úkol</label></p>
+      <p id="rewardResult" role="status"></p>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
+    const status = document.getElementById("status");
+    const range = document.getElementById("levelRange");
+    const rows = document.getElementById("levelRows");
+    const format = n => Number(n).toLocaleString("cs-CZ");
+    const { data: { user }, error: authError } = await client.auth.getUser();
+    if (authError || !user) location.replace("index.html");
+    else {
+      const [characterResult, levelsResult] = await Promise.all([
+        client.from("characters").select("name, nickname, level, total_xp").eq("user_id", user.id).single(),
+        client.from("levels").select("level, required_xp").eq("is_active", true).order("level")
+      ]);
+      if (characterResult.error || levelsResult.error || !levelsResult.data?.length) {
+        status.textContent = "Úrovně se nepodařilo načíst: " + (levelsResult.error?.message || characterResult.error?.message || "Chybí data.");
+      } else {
+        const character = characterResult.data;
+        const levels = levelsResult.data;
+        const byLevel = new Map(levels.map(item => [item.level, item]));
+        const current = byLevel.get(character.level);
+        const next = byLevel.get(character.level + 1);
+        document.getElementById("characterName").textContent = character.nickname || character.name;
+        document.getElementById("levelInfo").textContent = `Úroveň ${character.level} · ${format(character.total_xp)} XP celkem`;
+        const bar = document.getElementById("levelProgress");
+        const info = document.getElementById("progressInfo");
+        if (next && current) {
+          bar.max = Math.max(1, next.required_xp - current.required_xp);
+          bar.value = Math.max(0, Math.min(bar.max, character.total_xp - current.required_xp));
+          info.textContent = `Do úrovně ${next.level} zbývá ${format(Math.max(0, next.required_xp - character.total_xp))} XP. Hranice: ${format(next.required_xp)} XP.`;
+          if (character.total_xp < current.required_xp) {
+            info.textContent = `Do hranice současné úrovně ${character.level} zbývá ${format(current.required_xp - character.total_xp)} XP. Úroveň této postavy byla nastavena ručně.`;
+          }
+        } else {
+          bar.value = bar.max;
+          info.textContent = character.level >= 100 ? "Dosažena nejvyšší úroveň 100." : "Další úroveň zatím nemá nastavenou hranici.";
+        }
+        document.getElementById("progressCard").hidden = false;
+        for (let from = 1; from <= 100; from += 20) {
+          const option = document.createElement("option");
+          option.value = String(from);
+          option.textContent = `Úrovně ${from}–${Math.min(from + 19, 100)}`;
+          range.append(option);
+        }
+        const all = document.createElement("option");
+        all.value = "all";
+        all.textContent = "Všechny úrovně";
+        range.append(all);
+        range.value = String(Math.floor((Math.max(1, Math.min(character.level, 100)) - 1) / 20) * 20 + 1);
+        function draw() {
+          rows.replaceChildren();
+          const from = range.value === "all" ? 1 : Number(range.value);
+          const to = range.value === "all" ? 100 : from + 19;
+          for (const item of levels) {
+            if (item.level < from || item.level > to) continue;
+            const tr = document.createElement("tr");
+            if (item.level === character.level) tr.className = "current";
+            const previous = byLevel.get(item.level - 1);
+            for (const value of [item.level, format(item.required_xp), previous ? "+" + format(item.required_xp - previous.required_xp) : "—"]) {
+              const td = document.createElement("td");
+              td.textContent = value;
+              tr.append(td);
+            }
+            rows.append(tr);
+          }
+        }
+        range.addEventListener("change", draw);
+        draw();
+        status.textContent = `${levels.length} úrovní připraveno.`;
+        const { data: isAdmin } = await client.rpc("is_admin");
+        if (isAdmin) {
+          const rewardCard = document.getElementById("rewardCard");
+          const rewardLevel = document.getElementById("rewardLevel");
+          const difficulty = document.getElementById("rewardDifficulty");
+          const group = document.getElementById("rewardGroup");
+          rewardLevel.value = String(Math.max(1, Math.min(100, character.level)));
+          function calculateReward() {
+            const level = Math.max(1, Math.min(100, Number(rewardLevel.value) || 1));
+            const base = Math.round((20 + 2.5 * (level - 1)) / 5) * 5;
+            const amount = Math.round((base * Number(difficulty.value) * (group.checked ? 1.5 : 1)) / 5) * 5;
+            document.getElementById("rewardResult").textContent =
+              `Doporučená odměna: ${format(amount)} XP${group.checked ? " pro každého člena družiny" : ""}.`;
+          }
+          for (const control of [rewardLevel, difficulty, group]) control.addEventListener("input", calculateReward);
+          calculateReward();
+          rewardCard.hidden = false;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
