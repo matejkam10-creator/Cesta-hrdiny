@@ -22,6 +22,17 @@
   </div>
 <div id="clenove">Načítám členy...</div>
 
+<section id="chatDruziny" style="display:none;max-width:600px;margin:30px auto;">
+  <h3>Chat družiny</h3>
+  <div id="zpravy" aria-live="polite">Načítám zprávy...</div>
+  <button id="obnovitZpravy" type="button">Obnovit zprávy</button>
+  <form id="odeslatZpravu">
+    <textarea id="textZpravy" required maxlength="1000" placeholder="Napiš zprávu" style="width:100%;min-height:80px;margin-top:16px;"></textarea>
+    <button type="submit">Odeslat zprávu</button>
+  </form>
+  <p id="stavZpravy" role="status"></p>
+</section>
+
   <p><a href="druziny.html" style="color:#e8c77a;">← Zpět na moje družiny</a></p>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
@@ -99,6 +110,67 @@ if (!user) {
       radek.append(" ", tlacitko);
     }
     seznamClenu.append(radek);
+  }
+
+  if (clenove.some(c => c.character_id === postava.id)) {
+    document.getElementById("chatDruziny").style.display = "block";
+    const jmena = new Map(postavyClenu.map(p => [p.id, p.name]));
+    const vypisZprav = document.getElementById("zpravy");
+    const stavZpravy = document.getElementById("stavZpravy");
+
+    async function nacistZpravy() {
+      const { data: zpravy, error: chybaZprav } = await client
+        .from("messages")
+        .select("id, character_id, message, created_at")
+        .eq("group_id", groupId)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (chybaZprav) {
+        vypisZprav.textContent = "Zprávy se nepodařilo načíst.";
+        return;
+      }
+      vypisZprav.replaceChildren();
+      if (zpravy.length === 0) {
+        vypisZprav.textContent = "Zatím tu nejsou žádné zprávy.";
+      }
+      for (const zprava of [...zpravy].reverse()) {
+        const radek = document.createElement("p");
+        radek.style.cssText = "text-align:left;border-bottom:1px solid #554a40;padding:8px;overflow-wrap:anywhere";
+        const autor = document.createElement("strong");
+        autor.textContent = jmena.get(zprava.character_id) || "Člen družiny";
+        const cas = document.createElement("small");
+        cas.textContent = " · " + new Date(zprava.created_at).toLocaleString("cs-CZ");
+        const text = document.createElement("div");
+        text.textContent = zprava.message;
+        radek.append(autor, cas, text);
+        vypisZprav.append(radek);
+      }
+    }
+
+    document.getElementById("obnovitZpravy").addEventListener("click", nacistZpravy);
+    document.getElementById("odeslatZpravu").addEventListener("submit", async (udalost) => {
+      udalost.preventDefault();
+      const pole = document.getElementById("textZpravy");
+      const zprava = pole.value.trim();
+      if (!zprava) return;
+      const tlacitko = udalost.currentTarget.querySelector("button");
+      tlacitko.disabled = true;
+      const { error: chybaOdeslani } = await client.from("messages").insert({
+        group_id: groupId,
+        character_id: postava.id,
+        message: zprava
+      });
+      tlacitko.disabled = false;
+      if (chybaOdeslani) {
+        stavZpravy.textContent = "Zprávu se nepodařilo odeslat: " + chybaOdeslani.message;
+        return;
+      }
+      pole.value = "";
+      stavZpravy.textContent = "Zpráva byla odeslána.";
+      await nacistZpravy();
+    });
+    await nacistZpravy();
   }
          
         
