@@ -32,8 +32,15 @@
     .map::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #100e1699, transparent 30%, transparent 72%, #100e163b); pointer-events: none; }
     .map::after { content: ''; position: absolute; inset: 12px; border: 2px solid #f1d39877; border-radius: 12px; pointer-events: none; }
     .map-label { position: absolute; top: 28px; left: 28px; z-index: 1; padding: 4px 12px; border-radius: 8px; background: #17131ba8; font-size: clamp(26px, 5vw, 46px); color: #fff1c9; text-shadow: 0 2px 7px #101010; }
-    .marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 54px; height: 54px; border: 3px solid #fff1ca; border-radius: 50%; background: #9e6a30; color: #fff; box-shadow: 0 4px 16px #0009; font-size: 25px; }
+    .marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #fff; font-size: 19px; font-weight: bold; text-shadow: 0 1px 2px #0009; cursor: pointer; }
+    .marker::before { content: ''; position: absolute; z-index: -1; inset: 6px; border: 2px solid #fff1ca; border-radius: 50%; background: var(--marker-color, #9e6a30); box-shadow: 0 3px 10px #000a; }
+    .marker.easy, .legend-dot.easy { --marker-color: #287348; }
+    .marker.medium, .legend-dot.medium { --marker-color: #ad681f; }
+    .marker.hard, .legend-dot.hard { --marker-color: #a83335; }
     .marker:focus-visible, .marker:hover { outline: 3px solid #fff; outline-offset: 3px; }
+    .quest-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; color: #ead7b4; font-size: 14px; }
+    .quest-legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 17px; height: 17px; border: 2px solid #fff1ca; border-radius: 50%; background: var(--marker-color); }
     .empty { position: absolute; bottom: 22px; left: 24px; right: 24px; z-index: 1; padding: 12px; border-radius: 9px; background: #16141ad9; color: #fff1ca; text-align: center; }
     aside { position: sticky; top: 18px; text-align: center; }
     .avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 2px solid #e4c48a; }
@@ -65,6 +72,7 @@
       <p id="mapDescription" role="status">Načítám mapy...</p>
       <div id="mapTabs" role="tablist" aria-label="Oblasti"></div>
       <div id="mapView" class="map" aria-label="Mapa s úkoly"></div>
+      <div class="quest-legend" aria-label="Barvy úkolů podle obtížnosti"><span><i class="legend-dot easy" aria-hidden="true"></i>Lehký úkol</span><span><i class="legend-dot medium" aria-hidden="true"></i>Střední úkol</span><span><i class="legend-dot hard" aria-hidden="true"></i>Těžký úkol</span></div>
       <p class="note">Klepni na bod mapy a zobrazí se zadání úkolu.</p>
     </section>
     <aside class="panel" aria-label="Tvoje postava">
@@ -529,16 +537,20 @@
               view.append(empty);
               return;
             }
-            const locations = [[23,28],[70,23],[48,47],[80,68],[25,74],[57,80],[40,18],[62,61]];
+            const columns = [14, 32, 50, 68, 86];
+            const rows = [21, 34, 47, 60, 73, 86];
             quests.forEach((quest, index) => {
-              const [x,y] = locations[index % locations.length];
+              const slot = (index * 7) % (columns.length * rows.length);
+              const x = columns[slot % columns.length];
+              const y = rows[Math.floor(slot / columns.length)];
               const marker = document.createElement("button");
-              marker.className = "marker";
+              const difficulty = { easy: "lehký", medium: "střední", hard: "těžký" };
+              marker.className = "marker " + (difficulty[quest.difficulty] ? quest.difficulty : "easy");
               marker.style.left = x + "%";
               marker.style.top = y + "%";
               marker.textContent = "!";
-              marker.title = quest.name;
-              marker.setAttribute("aria-label", "Úkol: " + quest.name);
+              marker.title = quest.name + " · " + (difficulty[quest.difficulty] || "lehký") + " úkol";
+              marker.setAttribute("aria-label", "Úkol: " + quest.name + ", " + (difficulty[quest.difficulty] || "lehký") + " úkol");
               marker.addEventListener("click", async () => {
                 chosenQuest = quest;
                 currentSubmissionId = null;
