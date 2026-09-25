@@ -13,6 +13,7 @@
     input, textarea { display: block; width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #66533d; border-radius: 8px; background: #0e0d10; color: #fff; font: inherit; }
     textarea { min-height: 100px; resize: vertical; }
     button { padding: 10px 18px; margin: 8px; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
     a { color: #e8c77a; }
     #popis { white-space: pre-wrap; overflow-wrap: anywhere; }
   </style>
@@ -31,6 +32,13 @@
     <textarea id="popisProfilu" maxlength="500" placeholder="Napiš něco o své postavě"></textarea>
     <button type="submit">Uložit profil</button>
     <p id="stavProfilu" role="status"></p>
+  </form>
+  <form id="nahratAvatar" class="karta" style="display:none;margin-top:16px;">
+    <h3>Fotka avatara</h3>
+    <label for="souborAvatara">Vyber obrázek JPG, PNG nebo WebP (nejvýše 5 MB)</label>
+    <input id="souborAvatara" type="file" accept="image/jpeg,image/png,image/webp" required>
+    <button type="submit">Nahrát avatar</button>
+    <p id="stavAvatara" role="status"></p>
   </form>
   <p><a href="druziny.html" style="color:#e8c77a;">⚔️ Moje družiny</a></p>
   <button id="logout">Odhlásit se</button>
@@ -69,10 +77,10 @@
       uroven.textContent = "Úroveň: " + postava.level;
       xp.textContent = "XP: " + postava.total_xp;
       popis.textContent = postava.description || "Zatím bez popisu.";
+      const obrazek = document.createElement("img");
+      obrazek.className = "avatar";
+      obrazek.alt = "Avatar postavy";
       if (postava.avatar_url) {
-        const obrazek = document.createElement("img");
-        obrazek.className = "avatar";
-        obrazek.alt = "Avatar postavy";
         obrazek.src = postava.avatar_url;
         karta.append(obrazek);
       }
@@ -104,6 +112,56 @@
         jmeno.textContent = nickname || postava.name;
         popis.textContent = description || "Zatím bez popisu.";
         stav.textContent = "Profil byl uložen.";
+      });
+
+      const avatarFormular = document.getElementById("nahratAvatar");
+      avatarFormular.style.display = "block";
+      avatarFormular.addEventListener("submit", async (udalost) => {
+        udalost.preventDefault();
+        const soubor = document.getElementById("souborAvatara").files[0];
+        const stav = document.getElementById("stavAvatara");
+        if (!soubor) return;
+        if (!["image/jpeg", "image/png", "image/webp"].includes(soubor.type) || soubor.size > 5 * 1024 * 1024) {
+          stav.textContent = "Vyber obrázek JPG, PNG nebo WebP o velikosti nejvýše 5 MB.";
+          return;
+        }
+        const tlacitko = avatarFormular.querySelector("button");
+        tlacitko.disabled = true;
+        stav.textContent = "Nahrávám avatar...";
+        try {
+          const puvodni = await createImageBitmap(soubor);
+          const pomer = Math.min(1, 512 / Math.max(puvodni.width, puvodni.height));
+          const platno = document.createElement("canvas");
+          platno.width = Math.max(1, Math.round(puvodni.width * pomer));
+          platno.height = Math.max(1, Math.round(puvodni.height * pomer));
+          const kontext = platno.getContext("2d");
+          if (!kontext) throw new Error("Obrázek nelze zpracovat.");
+          kontext.fillStyle = "#ffffff";
+          kontext.fillRect(0, 0, platno.width, platno.height);
+          kontext.drawImage(puvodni, 0, 0, platno.width, platno.height);
+          puvodni.close();
+          const zmenseny = await new Promise((resolve, reject) => {
+            platno.toBlob(blob => blob ? resolve(blob) : reject(new Error("Obrázek nelze zpracovat.")), "image/jpeg", 0.85);
+          });
+          const cesta = user.id + "/avatar.jpg";
+          const { error: chybaNahrani } = await client.storage.from("avatars").upload(cesta, zmenseny, {
+            contentType: "image/jpeg", upsert: true, cacheControl: "3600"
+          });
+          if (chybaNahrani) throw chybaNahrani;
+          const { data: urlData } = client.storage.from("avatars").getPublicUrl(cesta);
+          const url = urlData.publicUrl + "?v=" + Date.now();
+          const { error: chybaProfilu } = await client.from("characters")
+            .update({ avatar_url: url }).eq("id", postava.id);
+          if (chybaProfilu) throw chybaProfilu;
+          obrazek.src = url;
+          if (!obrazek.isConnected) karta.prepend(obrazek);
+          avatarFormular.reset();
+          stav.textContent = "Avatar byl uložen.";
+        } catch (chyba) {
+          stav.textContent = "Avatar se nepodařilo uložit: " + chyba.message;
+        } finally {
+          tlacitko.disabled = false;
+        }
       });
     }
     }
