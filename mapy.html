@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
-    body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f4e4c4; font-family: Georgia, serif; }
+    body { margin: 0; min-height: 100vh; background-color: #0d0c11; background-image: radial-gradient(circle at 12% 8%, #382b3b 0, transparent 32rem), radial-gradient(circle at 88% 66%, #302a25 0, transparent 38rem), repeating-linear-gradient(45deg, #cbb88a08 0 1px, transparent 1px 30px, #cbb88a08 31px 32px, transparent 32px 61px); color: #f4e4c4; font-family: Georgia, serif; }
     button { font: inherit; cursor: pointer; }
     a { color: #f1d398; }
     header { position: relative; z-index: 3; padding: 18px; border-bottom: 1px solid #5d4d38; background: #17131b; }
@@ -26,11 +26,12 @@
     #mapTabs button[aria-selected="true"] { background: #866333; border-color: #e3be7c; }
     #mapTabs button:disabled { opacity: .55; cursor: not-allowed; }
     #mapDescription { min-height: 24px; color: #cdbd9e; }
-    .map { position: relative; overflow: hidden; height: clamp(420px, 64vw, 640px); border: 2px solid #89704d; border-radius: 16px; background-color: #36483b; background-image: radial-gradient(ellipse at 17% 21%, #718764 0 9%, transparent 10%), radial-gradient(ellipse at 80% 75%, #566e50 0 13%, transparent 14%), radial-gradient(ellipse at 62% 18%, #85906a 0 8%, transparent 9%), repeating-linear-gradient(128deg, transparent 0 31px, #ffffff0a 32px 34px, transparent 35px 72px), linear-gradient(145deg, #454d38, #263b3c); }
-    .map.city { background-color: #574c45; background-image: linear-gradient(25deg, transparent 47%, #bba57988 48% 51%, transparent 52%), linear-gradient(125deg, transparent 45%, #bba57977 46% 49%, transparent 50%), repeating-linear-gradient(90deg, #3f3433 0 36px, #66584c 37px 75px, #4d403b 76px 103px); }
-    .map.group { background-color: #433b55; background-image: radial-gradient(circle at 60% 40%, #77689d 0%, #41334e 38%, #202536 100%); }
+    .map { position: relative; overflow: hidden; height: clamp(420px, 64vw, 640px); border: 2px solid #89704d; border-radius: 16px; background-color: #36483b; background-image: url("map-divoka-krajina.webp"); background-size: cover; background-position: center; }
+    .map.city { background-color: #574c45; background-image: url("map-mesto.webp"); }
+    .map.group { background-color: #433b55; background-image: url("map-zeme-druzin.webp"); }
+    .map::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #100e1699, transparent 30%, transparent 72%, #100e163b); pointer-events: none; }
     .map::after { content: ''; position: absolute; inset: 12px; border: 2px solid #f1d39877; border-radius: 12px; pointer-events: none; }
-    .map-label { position: absolute; top: 28px; left: 28px; z-index: 1; font-size: clamp(26px, 5vw, 46px); color: #fff1c9; text-shadow: 0 2px 7px #101010; }
+    .map-label { position: absolute; top: 28px; left: 28px; z-index: 1; padding: 4px 12px; border-radius: 8px; background: #17131ba8; font-size: clamp(26px, 5vw, 46px); color: #fff1c9; text-shadow: 0 2px 7px #101010; }
     .marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 54px; height: 54px; border: 3px solid #fff1ca; border-radius: 50%; background: #9e6a30; color: #fff; box-shadow: 0 4px 16px #0009; font-size: 25px; }
     .marker:focus-visible, .marker:hover { outline: 3px solid #fff; outline-offset: 3px; }
     .empty { position: absolute; bottom: 22px; left: 24px; right: 24px; z-index: 1; padding: 12px; border-radius: 9px; background: #16141ad9; color: #fff1ca; text-align: center; }
