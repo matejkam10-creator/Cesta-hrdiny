@@ -62,8 +62,17 @@ if (postavaError) {
   if (skupinyError) {
     document.getElementById("druziny").textContent = "Družiny se nepodařilo načíst: " + skupinyError.message;
   } else {
-    document.getElementById("druziny").innerHTML =
-      skupiny.map(g => '<p><a href="druzina.html?id=' + g.id + '" style="color:#e8c77a;">⚔️ ' + g.name + '</a></p>').join("");
+    const seznamDruzin = document.getElementById("druziny");
+    seznamDruzin.replaceChildren();
+    for (const g of skupiny) {
+      const radek = document.createElement("p");
+      const odkaz = document.createElement("a");
+      odkaz.href = "druzina.html?id=" + encodeURIComponent(g.id);
+      odkaz.style.color = "#e8c77a";
+      odkaz.textContent = "⚔️ " + g.name;
+      radek.append(odkaz);
+      seznamDruzin.append(radek);
+    }
   }
   }  
   }

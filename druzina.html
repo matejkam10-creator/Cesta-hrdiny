@@ -85,8 +85,21 @@ if (!user) {
     "Jména členů se nepodařilo načíst.";
       }
         if (!postavyError) {
-  document.getElementById("clenove").innerHTML =
-    postavyClenu.map(p => "<p>👤 " + p.name + " — " + (clenove.find(c => c.character_id === p.id)?.role === "captain" ? "Kapitán" : "Člen") + (jeKapitan && clenove.find(c => c.character_id === p.id)?.role !== "captain" ? ' <button class="odebratClena" data-id="' + p.id + '">Odebrat</button>' : "") + "</p>").join("");
+  const seznamClenu = document.getElementById("clenove");
+  seznamClenu.replaceChildren();
+  for (const p of postavyClenu) {
+    const role = clenove.find(c => c.character_id === p.id)?.role;
+    const radek = document.createElement("p");
+    radek.textContent = "👤 " + p.name + " — " + (role === "captain" ? "Kapitán" : "Člen");
+    if (jeKapitan && role !== "captain") {
+      const tlacitko = document.createElement("button");
+      tlacitko.className = "odebratClena";
+      tlacitko.dataset.id = p.id;
+      tlacitko.textContent = "Odebrat";
+      radek.append(" ", tlacitko);
+    }
+    seznamClenu.append(radek);
+  }
          
         
       }
