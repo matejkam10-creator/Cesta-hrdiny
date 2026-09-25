@@ -6,6 +6,7 @@
   <title>Moje postava | Cesta hrdiny</title>
   <style>
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f4e4c4; font: 18px Georgia, serif; }
     main { width: min(100% - 32px, 760px); margin: 24px auto 48px; }
     h1, h2, h3 { color: #efd49b; }
@@ -24,6 +25,8 @@
     button:disabled { opacity: .55; cursor: wait; }
     a { color: #efd49b; }
     nav { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 18px 0; }
+    #profileActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    #profileActions button[aria-expanded="true"] { background: #785c34; outline: 2px solid #efd49b; }
     #logout { background: #794646; }
     #stavProfilu, #stavAvatara { min-height: 24px; }
     #popis { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -36,6 +39,11 @@
   <h1>⚔️ Cesta hrdiny</h1>
   <h2>Moje postava</h2>
   <section id="postava" class="karta">Načítám tvoji postavu...</section>
+  <div id="profileActions" hidden>
+    <button id="showEdit" type="button" aria-controls="editPanel" aria-expanded="false">Upravit profil</button>
+    <button id="showAvatar" type="button" aria-controls="avatarPanel" aria-expanded="false">Nahrát fotku</button>
+  </div>
+  <div id="editPanel" hidden>
   <form id="upravitProfil" class="karta" style="display:none;margin-top:16px;">
     <h3>Upravit profil</h3>
     <label for="prezdivka">Přezdívka (2–30 znaků)</label>
@@ -45,6 +53,8 @@
     <button type="submit">Uložit profil</button>
     <p id="stavProfilu" role="status"></p>
   </form>
+  </div>
+  <div id="avatarPanel" hidden>
   <form id="nahratAvatar" class="karta" style="display:none;margin-top:16px;">
     <h3>Fotka avatara</h3>
     <label for="souborAvatara">Vyber obrázek JPG, PNG nebo WebP (nejvýše 5 MB)</label>
@@ -52,6 +62,7 @@
     <button type="submit">Nahrát avatar</button>
     <p id="stavAvatara" role="status"></p>
   </form>
+  </div>
   <button id="logout">Odhlásit se</button>
 </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -96,6 +107,21 @@
         karta.append(obrazek);
       }
       karta.append(jmeno, skutecneJmeno, titul, datum, uroven, xp, popis);
+      const actions = document.getElementById("profileActions");
+      const editPanel = document.getElementById("editPanel");
+      const avatarPanel = document.getElementById("avatarPanel");
+      const editButton = document.getElementById("showEdit");
+      const avatarButton = document.getElementById("showAvatar");
+      actions.hidden = false;
+      function togglePanel(panel, button, otherPanel, otherButton) {
+        const opening = panel.hidden;
+        otherPanel.hidden = true;
+        otherButton.setAttribute("aria-expanded", "false");
+        panel.hidden = !opening;
+        button.setAttribute("aria-expanded", String(opening));
+      }
+      editButton.addEventListener("click", () => togglePanel(editPanel, editButton, avatarPanel, avatarButton));
+      avatarButton.addEventListener("click", () => togglePanel(avatarPanel, avatarButton, editPanel, editButton));
       const { data: hranice } = await client.from("levels")
         .select("level, required_xp").eq("is_active", true)
         .in("level", [postava.level, postava.level + 1]);
