@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moje úkoly | Cesta hrdiny</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f4e4c4; font-family: Georgia, serif; }
+    main { max-width: 850px; margin: 24px auto; padding: 0 16px 50px; }
+    h1, h2 { color: #efd49b; }
+    a { color: #efd49b; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+    button { padding: 10px 16px; border: 1px solid #806a4b; border-radius: 9px; background: #26202a; color: #f4e4c4; font: inherit; cursor: pointer; }
+    button[aria-selected="true"] { background: #866333; border-color: #e3be7c; }
+    .card { margin: 16px 0; padding: 20px; border: 1px solid #6a573f; border-radius: 16px; background: #1b1720; }
+    .card h2 { margin: 0 0 12px; }
+    .meta { color: #cdbd9e; }
+    .answer, .comment { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; padding: 12px; border: 1px solid #544b42; border-radius: 8px; background: #141218; }
+    .comment { border-color: #9a7354; }
+    .photos a { display: block; margin: 9px 0; }
+    .approved { color: #a6dab1; }
+    .returned { color: #edbc9c; }
+    .pending { color: #efd49b; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="mapy.html">← Zpět na mapy</a></p>
+    <h1>Moje úkoly</h1>
+    <p id="status" role="status">Načítám odevzdaná řešení...</p>
+    <div class="tabs" role="tablist" aria-label="Druh úkolů">
+      <button id="personalTab" type="button" role="tab" aria-selected="true" aria-controls="personalList">Osobní úkoly</button>
+      <button id="groupTab" type="button" role="tab" aria-selected="false" aria-controls="groupList">Družinové úkoly</button>
+    </div>
+    <section id="personalList" role="tabpanel" aria-labelledby="personalTab"></section>
+    <section id="groupList" role="tabpanel" aria-labelledby="groupTab" hidden></section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
+    const status = document.getElementById("status");
+    const personalList = document.getElementById("personalList");
+    const groupList = document.getElementById("groupList");
+    const personalTab = document.getElementById("personalTab");
+    const groupTab = document.getElementById("groupTab");
+    function selectTab(group) {
+      personalList.hidden = group;
+      groupList.hidden = !group;
+      personalTab.setAttribute("aria-selected", String(!group));
+      groupTab.setAttribute("aria-selected", String(group));
+    }
+    personalTab.addEventListener("click", () => selectTab(false));
+    groupTab.addEventListener("click", () => selectTab(true));
+
+    function appendPhotos(card, paths) {
+      if (!paths.length) return;
+      const links = document.createElement("div");
+      links.className = "photos";
+      paths.forEach((path, index) => {
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = `Zobrazit fotku ${index + 1}`;
+        link.addEventListener("click", async event => {
+          event.preventDefault();
+          const { data, error } = await client.storage.from("quest-evidence").createSignedUrl(path, 300);
+          if (error) status.textContent = "Fotku se nepodařilo otevřít: " + error.message;
+          else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+        });
+        links.append(link);
+      });
+      card.append(links);
+    }
+    function appendCard(container, item) {
+      const card = document.createElement("article");
+      card.className = "card";
+      const heading = document.createElement("h2");
+      heading.textContent = item.title;
+      const meta = document.createElement("p");
+      meta.className = "meta";
+      meta.textContent = `${new Date(item.created_at).toLocaleString("cs-CZ")} · Odměna úkolu: ${item.xp_reward} XP`;
+      const state = document.createElement("p");
+      state.className = item.status;
+      state.textContent = ({ pending: "Čeká na schválení", approved: "Schváleno", returned: "Vráceno k opravě" })[item.status] || item.status;
+      const answer = document.createElement("p");
+      answer.className = "answer";
+      answer.textContent = item.answer || "Bez textu";
+      card.append(heading, meta, state, answer);
+      if (item.review_comment) {
+        const label = document.createElement("strong");
+        label.textContent = "Komentář admina:";
+        const comment = document.createElement("p");
+        comment.className = "comment";
+        comment.textContent = item.review_comment;
+        card.append(label, comment);
+      }
+      appendPhotos(card, item.photos);
+      container.append(card);
+    }
+    function fileMap(files, key) {
+      const result = new Map();
+      for (const file of files) {
+        if (!result.has(file[key])) result.set(file[key], []);
+        result.get(file[key]).push(file.file_url);
+      }
+      return result;
+    }
+    async function selectMany(table, columns, column, ids, orderColumn) {
+      if (!ids.length) return [];
+      let query = client.from(table).select(columns).in(column, ids);
+      if (orderColumn) query = query.order(orderColumn, { ascending: true });
+      const { data, error } = await query;
+      if (error) throw new Error(`${table}: ${error.message}`);
+      return data || [];
+    }
+    const { data: { user }, error: authError } = await client.auth.getUser();
+    if (authError || !user) location.replace("index.html");
+    else try {
+      const { data: character, error: characterError } = await client.from("characters")
+        .select("id").eq("user_id", user.id).single();
+      if (characterError || !character) throw new Error("Postavu se nepodařilo načíst.");
+      const [{ data: assignments, error: aError }, { data: memberships, error: mError }] = await Promise.all([
+        client.from("quest_assignments").select("id, quest_id").eq("character_id", character.id),
+        client.from("group_members").select("group_id").eq("character_id", character.id)
+      ]);
+      if (aError || mError) throw new Error("Odevzdané úkoly se nepodařilo načíst.");
+      const groupIds = [...new Set(memberships.map(m => m.group_id))];
+      const [personal, grouped, groups] = await Promise.all([
+        selectMany("submissions", "id, assignment_id, text_content, status, review_comment, created_at", "assignment_id", assignments.map(a => a.id)),
+        selectMany("group_submissions", "id, group_id, quest_id, answer, status, review_comment, created_at", "group_id", groupIds),
+        selectMany("groups", "id, name", "id", groupIds)
+      ]);
+      const questIds = [...new Set([...assignments.map(a => a.quest_id), ...grouped.map(s => s.quest_id)])];
+      const [quests, personalPhotos, groupPhotos] = await Promise.all([
+        selectMany("quests", "id, name, xp_reward", "id", questIds),
+        selectMany("submission_files", "submission_id, file_url", "submission_id", personal.map(s => s.id), "uploaded_at"),
+        selectMany("group_submission_files", "group_submission_id, file_url", "group_submission_id", grouped.map(s => s.id), "uploaded_at")
+      ]);
+      const assignmentById = new Map(assignments.map(a => [a.id, a]));
+      const questById = new Map(quests.map(q => [q.id, q]));
+      const groupById = new Map(groups.map(g => [g.id, g]));
+      const personalFileMap = fileMap(personalPhotos, "submission_id");
+      const groupFileMap = fileMap(groupPhotos, "group_submission_id");
+      personal.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      grouped.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      for (const s of personal) {
+        const quest = questById.get(assignmentById.get(s.assignment_id)?.quest_id);
+        appendCard(personalList, {
+          title: quest?.name || "Osobní úkol", xp_reward: quest?.xp_reward ?? 0,
+          created_at: s.created_at, status: s.status, answer: s.text_content,
+          review_comment: s.review_comment, photos: personalFileMap.get(s.id) || []
+        });
+      }
+      for (const s of grouped) {
+        const quest = questById.get(s.quest_id);
+        appendCard(groupList, {
+          title: (groupById.get(s.group_id)?.name || "Družina") + " · " + (quest?.name || "Úkol"),
+          xp_reward: quest?.xp_reward ?? 0, created_at: s.created_at, status: s.status,
+          answer: s.answer, review_comment: s.review_comment,
+          photos: groupFileMap.get(s.id) || []
+        });
+      }
+      if (!personal.length) personalList.textContent = "Zatím nemáš žádné odevzdané osobní úkoly.";
+      if (!grouped.length) groupList.textContent = "Tvoje družina zatím nemá žádné odevzdané úkoly.";
+      status.textContent = `Osobní řešení: ${personal.length} · Družinová řešení: ${grouped.length}`;
+    } catch (error) {
+      status.textContent = "Historii úkolů se nepodařilo načíst: " + error.message;
+    }
+  </script>
+</body>
+</html>
