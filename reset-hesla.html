@@ -1,1 +1,79 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Obnova hesla | Cesta hrdiny</title>
+  <style>
+    body { min-height:100vh; margin:0; display:grid; place-items:center; background:radial-gradient(circle at top,#342b3d,#09080b); color:#f3ead7; font-family:Georgia,serif; }
+    main { width:min(420px,90vw); padding:28px; border:1px solid #66533d; border-radius:18px; background:#17141c; text-align:center; }
+    h1,a { color:#e8c47c; }
+    input,button { box-sizing:border-box; width:100%; margin:8px 0; padding:14px; border-radius:10px; font-size:16px; }
+    input { background:#0e0d10; border:1px solid #554a40; color:white; }
+    button { border:0; background:#a67c3d; color:white; font-weight:bold; }
+    button:disabled { opacity:.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>⚔️ Nové heslo</h1>
+    <p id="status" role="status">Ověřuji odkaz pro obnovu hesla…</p>
+    <form id="formular" hidden>
+      <input id="heslo" type="password" autocomplete="new-password" minlength="8" required placeholder="Nové heslo (alespoň 8 znaků)">
+      <input id="potvrzeni" type="password" autocomplete="new-password" minlength="8" required placeholder="Zopakuj nové heslo">
+      <button id="ulozit" type="submit">Uložit nové heslo</button>
+    </form>
+    <p><a href="index.html">Zpět na přihlášení</a></p>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const client = supabase.createClient(
+      "https://qgnallfqanixepfvrzjn.supabase.co",
+      "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi"
+    );
+    const status = document.getElementById("status");
+    const form = document.getElementById("formular");
+    let recovery = false;
+    const recoveryLink = new URLSearchParams(location.hash.slice(1)).get("type") === "recovery";
 
+    client.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        recovery = true;
+        form.hidden = false;
+        status.textContent = "Zadej nové heslo.";
+      }
+    });
+
+    client.auth.getSession().then(({ data, error }) => {
+      if (!recovery && recoveryLink && data.session && !error) {
+        recovery = true;
+        form.hidden = false;
+        status.textContent = "Zadej nové heslo.";
+      } else if (!recovery) {
+        status.textContent = "Odkaz není platný nebo vypršel. Vyžádej si nový na přihlašovací stránce.";
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!recovery) return;
+      const password = document.getElementById("heslo").value;
+      if (password !== document.getElementById("potvrzeni").value) {
+        status.textContent = "Hesla se neshodují.";
+        return;
+      }
+      const button = document.getElementById("ulozit");
+      button.disabled = true;
+      const { error } = await client.auth.updateUser({ password });
+      if (error) {
+        status.textContent = "Heslo se nepodařilo změnit: " + error.message;
+        button.disabled = false;
+        return;
+      }
+      form.hidden = true;
+      recovery = false;
+      await client.auth.signOut();
+      status.textContent = "Heslo bylo změněno. Teď se přihlas novým heslem.";
+    });
+  </script>
+</body>
+</html>

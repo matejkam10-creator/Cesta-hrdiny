@@ -15,11 +15,11 @@
   <textarea id="novyPopis" style="display:none"></textarea>
   <button id="ulozitPopis" style="display:none">Uložit popis</button>
   <h3>Členové družiny</h3>
-  <button id="pridatClena">Přidat člena</button>
-  <div id="pridatClenaForm" style="display:none;"></div>
-  <input id="jmenoNovehoClena" placeholder="Jméno postavy">
-  <button id="potvrditPridani">Přidat</button>
-</div>
+  <button id="pridatClena" style="display:none">Přidat člena</button>
+  <div id="pridatClenaForm" style="display:none;">
+    <input id="jmenoNovehoClena" placeholder="Jméno postavy">
+    <button id="potvrditPridani">Přidat</button>
+  </div>
 <div id="clenove">Načítám členy...</div>
 
   <p><a href="druziny.html" style="color:#e8c77a;">← Zpět na moje družiny</a></p>
@@ -69,6 +69,7 @@ if (!user) {
     if (!clenoveError && clenove.length > 0) {
     const jeKapitan = clenove.some(c => c.role === "captain" && c.character_id === postava.id);
     if (jeKapitan) {
+    document.getElementById("pridatClena").style.display = "inline-block";
     
     document.getElementById("novyPopis").style.display = "inline-block";
     document.getElementById("ulozitPopis").style.display = "inline-block";
@@ -105,31 +106,9 @@ if (!user) {
       location.reload();
     
 });
-    document.getElementById("pridatClena").addEventListener("click", async () => {
-      const jmeno = prompt("Zadej přesné jméno hráče, kterého chceš přidat:");
-      if (!jmeno) return;
-      const { data: hledanaPostava, error: chybaHledani } = await client
-        .rpc("find_character_by_name", { search_name: jmeno });
-        
-      if (chybaHledani || !hledanaPostava || hledanaPostava.length === 0) {
-          alert("Postava nebyla nalezena.");
-          return;
-      }
-      const { error: chybaPridani } = await client
-        .from("group_members")
-        .insert({
-              group_id: groupId,
-              character_id: hledanaPostava[0].id,
-              role: "member"
-                  });
-      if (chybaPridani) {
-          console.log(chybaPridani);
-          alert("Chyba: " + chybaPridani.message);
-          return;
-      }
-      alert("Člen byl přidán.");
-      location.reload();
-      });
+    document.getElementById("pridatClena").addEventListener("click", () => {
+      document.getElementById("pridatClenaForm").style.display = "block";
+    });
     document.getElementById("potvrditPridani").addEventListener("click", async () => {
       const jmeno = document.getElementById("jmenoNovehoClena").value.trim();
       if (!jmeno) return;

@@ -104,6 +104,7 @@
       <input id="password" type="password" placeholder="Heslo">
 
       <button id="login">Přihlásit se</button>
+      <button id="reset" type="button">Zapomenuté heslo</button>
 
       <div id="status"></div>
 
@@ -120,6 +121,23 @@
     const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.getElementById("reset").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const status = document.getElementById("status");
+      if (!email || !document.getElementById("email").checkValidity()) {
+        status.textContent = "Zadej nejprve platný e-mail.";
+        return;
+      }
+      const button = document.getElementById("reset");
+      button.disabled = true;
+      const redirectTo = new URL("reset-hesla.html", window.location.href).href;
+      const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+      status.textContent = error
+        ? "Odkaz se nepodařilo odeslat: " + error.message
+        : "Pokud účet existuje, přijde na zadaný e-mail odkaz pro obnovu hesla.";
+      button.disabled = false;
+    });
 
     document.getElementById("login").addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
