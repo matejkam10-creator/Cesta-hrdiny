@@ -36,6 +36,9 @@
     dialog::backdrop { background: #000a; }
     #questText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
     .close { padding: 10px 18px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
+    #questForm textarea { display: block; width: 100%; min-height: 130px; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; resize: vertical; }
+    #questForm button { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
+    #questForm button:disabled { opacity: .6; }
     @media (max-width: 760px) { main { display: flex; flex-direction: column; } main > * { width: 100%; } aside { position: static; order: -1; } .map { height: min(72vh, 580px); min-height: 390px; } }
   </style>
 </head>
@@ -61,7 +64,12 @@
     <h2 id="questTitle"></h2>
     <p id="questText"></p>
     <p id="questInfo"></p>
-    <p class="note">Odevzdávání řešení a schvalování úkolů připravujeme.</p>
+    <p id="questStatus" role="status"></p>
+    <form id="questForm" hidden>
+      <label for="questAnswer">Jak úkol vyřeší tvoje postava? (10–5000 znaků)</label>
+      <textarea id="questAnswer" minlength="10" maxlength="5000" required></textarea>
+      <button type="submit">Odevzdat řešení</button>
+    </form>
     <form method="dialog"><button class="close">Zavřít</button></form>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -106,6 +114,27 @@
           const tabs = document.getElementById("mapTabs");
           const view = document.getElementById("mapView");
           const locked = m => character.level < m.required_level || (m.required_level >= 10 && !member);
+          let chosenQuest = null;
+          const questForm = document.getElementById("questForm");
+          const questStatus = document.getElementById("questStatus");
+          questForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            if (!chosenQuest) return;
+            const button = questForm.querySelector("button");
+            button.disabled = true;
+            questStatus.textContent = "Odesílám řešení...";
+            const { error } = await client.rpc("submit_personal_quest", {
+              p_quest_id: chosenQuest.id,
+              p_text: document.getElementById("questAnswer").value.trim()
+            });
+            button.disabled = false;
+            if (error) {
+              questStatus.textContent = "Řešení se nepodařilo odeslat: " + error.message;
+            } else {
+              questForm.hidden = true;
+              questStatus.textContent = "Řešení bylo odesláno a čeká na schválení. XP se připíše až po schválení.";
+            }
+          });
           async function showMap(map, chosenTab) {
             tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", String(b === chosenTab)));
             document.getElementById("mapTitle").textContent = map.name;
@@ -136,14 +165,42 @@
               marker.textContent = "!";
               marker.title = quest.name;
               marker.setAttribute("aria-label", "Úkol: " + quest.name);
-              marker.addEventListener("click", () => {
+              marker.addEventListener("click", async () => {
+                chosenQuest = quest;
                 document.getElementById("questTitle").textContent = quest.name;
                 document.getElementById("questText").textContent = quest.description;
                 const difficult = { easy: "Lehká", medium: "Střední", hard: "Těžká" };
                 document.getElementById("questInfo").textContent =
                   `Obtížnost: ${difficult[quest.difficulty] || quest.difficulty} · Odměna: ${quest.xp_reward} XP · Od úrovně ${quest.required_level}` +
                   (quest.is_group_quest ? " · Družinový úkol" : "");
+                questForm.hidden = true;
+                questForm.reset();
+                questStatus.textContent = "Načítám stav úkolu...";
                 document.getElementById("questDialog").showModal();
+                if (quest.is_group_quest) {
+                  questStatus.textContent = "Družinové úkoly bude za celou družinu odevzdávat kapitán.";
+                  return;
+                }
+                if (character.level < quest.required_level) {
+                  questStatus.textContent = `Tento úkol je dostupný od úrovně ${quest.required_level}.`;
+                  return;
+                }
+                const { data: assignments, error: assignmentError } = await client
+                  .from("quest_assignments").select("status")
+                  .eq("quest_id", quest.id).eq("character_id", character.id)
+                  .order("taken_at", { ascending: false }).limit(1);
+                if (chosenQuest !== quest || !document.getElementById("questDialog").open) return;
+                if (assignmentError) {
+                  questStatus.textContent = "Stav úkolu se nepodařilo načíst.";
+                  return;
+                }
+                const status = assignments?.[0]?.status;
+                if (status === "submitted") questStatus.textContent = "Tvoje řešení čeká na schválení.";
+                else if (status === "approved") questStatus.textContent = "Úkol už máš schválený.";
+                else {
+                  questStatus.textContent = status === "rejected" ? "Předchozí řešení bylo vráceno. Další pokus závisí na limitu úkolu." : "";
+                  questForm.hidden = false;
+                }
               });
               view.append(marker);
             });
