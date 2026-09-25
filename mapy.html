@@ -6,6 +6,7 @@
   <title>Mapy | Cesta hrdiny</title>
   <style>
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f4e4c4; font-family: Georgia, serif; }
     button { font: inherit; cursor: pointer; }
     a { color: #f1d398; }
@@ -46,7 +47,7 @@
 <body>
   <header><div class="header-inner">
     <h1>⚔️ Cesta hrdiny</h1>
-    <nav><a href="postava.html">Moje postava</a><a href="druziny.html">Družiny</a></nav>
+    <nav><a href="postava.html">Moje postava</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
   </div></header>
   <main>
     <section class="panel" aria-labelledby="mapTitle">
@@ -87,6 +88,9 @@
     if (authError || !user) {
       location.replace("index.html");
     } else {
+      client.rpc("is_admin").then(({ data }) => {
+        if (data) document.getElementById("adminLink").hidden = false;
+      });
       const profile = document.getElementById("profile");
       const mapDescription = document.getElementById("mapDescription");
       const { data: character, error: characterError } = await client.from("characters")

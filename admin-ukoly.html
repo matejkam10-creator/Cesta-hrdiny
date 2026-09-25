@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kontrola úkolů | Cesta hrdiny</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f2e5cb; font-family: Georgia, serif; }
+    main { max-width: 820px; margin: 30px auto; padding: 0 16px 50px; }
+    h1, h2 { color: #efd49b; }
+    a { color: #efd49b; }
+    .card { margin: 18px 0; padding: 22px; border: 1px solid #6a573f; border-radius: 16px; background: #1b1720; }
+    .answer { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; padding: 14px; border: 1px solid #544b42; border-radius: 8px; background: #141218; }
+    .meta { color: #ccb99a; }
+    textarea { display: block; width: 100%; min-height: 80px; margin: 12px 0; padding: 12px; border: 1px solid #826c4e; border-radius: 8px; background: #0d0c11; color: #fff; font: inherit; }
+    button { margin: 8px 8px 8px 0; padding: 10px 16px; border: 0; border-radius: 8px; background: #a27b41; color: white; font: inherit; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .reject { background: #7b4242; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="mapy.html">← Zpět na mapy</a></p>
+    <h1>Kontrola úkolů</h1>
+    <p id="status" role="status">Ověřuji přístup...</p>
+    <div id="list"></div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
+    const status = document.getElementById("status");
+    const list = document.getElementById("list");
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) {
+      location.replace("index.html");
+    } else {
+      const { data: isAdmin, error: adminError } = await client.rpc("is_admin");
+      if (adminError || !isAdmin) {
+        status.textContent = adminError ? "Ověření admina se nepodařilo: " + adminError.message : "Tato stránka je pouze pro adminy.";
+      } else {
+        await loadPending();
+      }
+    }
+    async function loadPending() {
+      list.replaceChildren();
+      status.textContent = "Načítám čekající řešení...";
+      const { data: submissions, error } = await client.from("submissions")
+        .select("id, assignment_id, text_content, created_at")
+        .eq("status", "pending").order("created_at", { ascending: true });
+      if (error) { status.textContent = "Řešení se nepodařilo načíst: " + error.message; return; }
+      if (!submissions?.length) { status.textContent = "Žádná řešení nečekají na kontrolu."; return; }
+      const { data: assignments, error: assignmentError } = await client.from("quest_assignments")
+        .select("id, quest_id, character_id").in("id", submissions.map(s => s.assignment_id));
+      if (assignmentError) { status.textContent = "Úkoly se nepodařilo načíst: " + assignmentError.message; return; }
+      const { data: quests, error: questError } = await client.from("quests")
+        .select("id, name, xp_reward").in("id", [...new Set(assignments.map(a => a.quest_id))]);
+      const { data: characters, error: characterError } = await client.from("characters")
+        .select("id, name, nickname").in("id", [...new Set(assignments.map(a => a.character_id))]);
+      const { data: files, error: fileError } = await client.from("submission_files")
+        .select("submission_id, file_url").in("submission_id", submissions.map(s => s.id));
+      if (questError || characterError || fileError) {
+        status.textContent = "Podrobnosti řešení se nepodařilo načíst.";
+        return;
+      }
+      status.textContent = `Čekající řešení: ${submissions.length}`;
+      const assignmentById = new Map(assignments.map(a => [a.id, a]));
+      const questById = new Map(quests.map(q => [q.id, q]));
+      const characterById = new Map(characters.map(c => [c.id, c]));
+      const fileBySubmission = new Map(files.map(f => [f.submission_id, f.file_url]));
+      for (const submission of submissions) {
+        const assignment = assignmentById.get(submission.assignment_id);
+        const quest = questById.get(assignment?.quest_id);
+        const character = characterById.get(assignment?.character_id);
+        const card = document.createElement("article");
+        card.className = "card";
+        const title = document.createElement("h2");
+        title.textContent = quest?.name || "Neznámý úkol";
+        const meta = document.createElement("p");
+        meta.className = "meta";
+        meta.textContent = `${character?.nickname || character?.name || "Neznámá postava"} · ${new Date(submission.created_at).toLocaleString("cs-CZ")} · ${quest?.xp_reward ?? 0} XP`;
+        const answer = document.createElement("p");
+        answer.className = "answer";
+        answer.textContent = submission.text_content || "Bez textu";
+        card.append(title, meta, answer);
+        const filePath = fileBySubmission.get(submission.id);
+        if (filePath) {
+          const link = document.createElement("a");
+          link.href = "#";
+          link.textContent = "Zobrazit přiloženou fotku";
+          link.addEventListener("click", async event => {
+            event.preventDefault();
+            const { data, error: linkError } = await client.storage.from("quest-evidence")
+              .createSignedUrl(filePath, 300);
+            if (linkError) { message.textContent = "Fotku nelze otevřít: " + linkError.message; return; }
+            window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+          });
+          card.append(link);
+        }
+        const comment = document.createElement("textarea");
+        comment.maxLength = 1000;
+        comment.placeholder = "Důvod vrácení (povinný jen při vrácení)";
+        comment.setAttribute("aria-label", "Komentář ke kontrole");
+        const approve = document.createElement("button");
+        approve.textContent = "Schválit";
+        const reject = document.createElement("button");
+        reject.className = "reject";
+        reject.textContent = "Vrátit k opravě";
+        const message = document.createElement("p");
+        message.setAttribute("role", "status");
+        async function review(accepted) {
+          if (!accepted && comment.value.trim().length < 3) {
+            message.textContent = "Napiš důvod vrácení (alespoň 3 znaky).";
+            return;
+          }
+          approve.disabled = reject.disabled = true;
+          message.textContent = "Ukládám rozhodnutí...";
+          const { error: reviewError } = await client.rpc("review_personal_submission", {
+            p_submission_id: submission.id,
+            p_approve: accepted,
+            p_comment: comment.value.trim() || null
+          });
+          if (reviewError) {
+            message.textContent = "Rozhodnutí se nepodařilo uložit: " + reviewError.message;
+            approve.disabled = reject.disabled = false;
+          } else {
+            message.textContent = accepted ? "Schváleno a XP připsána." : "Řešení bylo vráceno.";
+            await loadPending();
+          }
+        }
+        approve.addEventListener("click", () => review(true));
+        reject.addEventListener("click", () => review(false));
+        card.append(comment, approve, reject, message);
+        list.append(card);
+      }
+    }
+  </script>
+</body>
+</html>
