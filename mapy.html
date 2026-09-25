@@ -38,9 +38,12 @@
     dialog::backdrop { background: #000a; }
     #questText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
     .close { padding: 10px 18px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
-    #questForm textarea, #groupQuestForm textarea, #groupSelect, #photoFile { display: block; width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; }
-    #questForm textarea, #groupQuestForm textarea { min-height: 130px; resize: vertical; }
-    #questForm button, #groupQuestForm button, #photoUpload { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
+    #questForm textarea, #groupQuestForm textarea, #ideaForm textarea, #groupSelect, #photoFile { display: block; width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #fff; font: inherit; }
+    #questForm textarea, #groupQuestForm textarea, #ideaForm textarea { min-height: 130px; resize: vertical; }
+    #questForm button, #groupQuestForm button, #ideaForm button, #ideaList button, #photoUpload { padding: 10px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; }
+    #teamIdeas { margin: 20px 0; padding: 16px; border: 1px solid #6a573f; border-radius: 12px; }
+    #ideaList article { padding: 12px 0; border-bottom: 1px solid #6a573f; overflow-wrap: anywhere; }
+    #ideaList p { white-space: pre-wrap; }
     #questForm button:disabled, #photoUpload:disabled { opacity: .6; }
     @media (max-width: 760px) { main { display: flex; flex-direction: column; } main > * { width: 100%; } aside { position: static; order: -1; } .map { height: min(72vh, 580px); min-height: 390px; } }
   </style>
@@ -77,6 +80,18 @@
       <label for="groupSelect">Tvoje družina</label>
       <select id="groupSelect"></select>
       <p id="groupStatus" role="status"></p>
+      <section id="teamIdeas" hidden>
+        <h3>Nápady členů družiny</h3>
+        <p>Každý člen může napsat a upravit svůj návrh. Kapitán z návrhů sestaví konečné řešení.</p>
+        <div id="ideaList">Načítám návrhy...</div>
+        <button id="ideaRefresh" type="button">Obnovit návrhy</button>
+        <form id="ideaForm">
+          <label for="ideaText">Tvůj návrh (10–2000 znaků)</label>
+          <textarea id="ideaText" minlength="10" maxlength="2000" required></textarea>
+          <button type="submit">Uložit návrh</button>
+        </form>
+        <p id="ideaStatus" role="status"></p>
+      </section>
       <form id="groupQuestForm" hidden>
         <label for="groupAnswer">Společné řešení družiny (10–5000 znaků)</label>
         <textarea id="groupAnswer" minlength="10" maxlength="5000" required></textarea>
@@ -166,6 +181,80 @@
           const groupSelect = document.getElementById("groupSelect");
           const groupQuestForm = document.getElementById("groupQuestForm");
           const groupStatus = document.getElementById("groupStatus");
+          const teamIdeas = document.getElementById("teamIdeas");
+          const ideaList = document.getElementById("ideaList");
+          const ideaForm = document.getElementById("ideaForm");
+          const ideaText = document.getElementById("ideaText");
+          const ideaStatus = document.getElementById("ideaStatus");
+          async function loadIdeas(groupId, questId, editable) {
+            teamIdeas.hidden = false;
+            ideaForm.hidden = !editable;
+            ideaList.textContent = "Načítám návrhy...";
+            const { data: ideas, error } = await client.from("group_quest_ideas")
+              .select("id, character_id, idea, created_at")
+              .eq("group_id", groupId).eq("quest_id", questId).order("created_at");
+            if (chosenQuest?.id !== questId || groupSelect.value !== groupId) return;
+            if (error) { ideaList.textContent = "Návrhy se nepodařilo načíst: " + error.message; return; }
+            const authorIds = [...new Set(ideas.map(item => item.character_id))];
+            const { data: authors } = authorIds.length
+              ? await client.from("characters").select("id, name, nickname").in("id", authorIds)
+              : { data: [] };
+            if (chosenQuest?.id !== questId || groupSelect.value !== groupId) return;
+            const names = new Map((authors || []).map(a => [a.id, a.nickname || a.name]));
+            ideaList.replaceChildren();
+            if (!ideas.length) ideaList.textContent = "Zatím tu nejsou žádné návrhy.";
+            const captain = memberships.find(m => m.group_id === groupId)?.role === "captain";
+            for (const item of ideas) {
+              const card = document.createElement("article");
+              const author = document.createElement("strong");
+              author.textContent = names.get(item.character_id) || "Člen družiny";
+              const content = document.createElement("p");
+              content.textContent = item.idea;
+              card.append(author, content);
+              if (captain && !groupQuestForm.hidden) {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.textContent = "Přidat do řešení";
+                button.addEventListener("click", () => {
+                  const answer = document.getElementById("groupAnswer");
+                  const addition = `${author.textContent}: ${item.idea}`;
+                  const combined = answer.value ? answer.value.trimEnd() + "\n\n" + addition : addition;
+                  if (combined.length > 5000) {
+                    ideaStatus.textContent = "Konečné řešení může mít nejvýše 5000 znaků.";
+                    return;
+                  }
+                  answer.value = combined;
+                  ideaStatus.textContent = "Návrh byl přidán do konečného řešení.";
+                });
+                card.append(button);
+              }
+              ideaList.append(card);
+            }
+            const own = ideas.find(item => item.character_id === character.id);
+            ideaText.value = own?.idea || "";
+          }
+          document.getElementById("ideaRefresh").addEventListener("click", () => {
+            if (chosenQuest?.is_group_quest && groupSelect.value)
+              loadIdeas(groupSelect.value, chosenQuest.id, !ideaForm.hidden);
+          });
+          ideaForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            if (!chosenQuest?.is_group_quest || !groupSelect.value || ideaForm.hidden) return;
+            const groupId = groupSelect.value;
+            const questId = chosenQuest.id;
+            const button = ideaForm.querySelector("button");
+            button.disabled = true;
+            ideaStatus.textContent = "Ukládám návrh...";
+            const { error } = await client.from("group_quest_ideas").upsert({
+              group_id: groupId, quest_id: questId, character_id: character.id, idea: ideaText.value.trim()
+            }, { onConflict: "group_id,quest_id,character_id" });
+            button.disabled = false;
+            if (error) ideaStatus.textContent = "Návrh se nepodařilo uložit: " + error.message;
+            else {
+              ideaStatus.textContent = "Návrh byl uložen pro tvoji družinu.";
+              await loadIdeas(groupId, questId, true);
+            }
+          });
           if (member) {
             const { data: groups } = await client.from("groups").select("id, name")
               .in("id", memberships.map(m => m.group_id));
@@ -181,6 +270,8 @@
             const questId = chosenQuest.id;
             const groupId = groupSelect.value;
             groupQuestForm.hidden = true;
+            teamIdeas.hidden = true;
+            ideaStatus.textContent = "";
             resetPhotos();
             groupStatus.textContent = "Načítám stav družinového úkolu...";
             const { data: submissions, error } = await client.from("group_submissions")
@@ -205,6 +296,7 @@
             }
             if (submission) await loadPhotoFiles("group", submission.id,
               submission.status === "pending" && memberships.find(m => m.group_id === groupId)?.role === "captain");
+            await loadIdeas(groupId, questId, submission?.status !== "pending" && submission?.status !== "approved");
           }
           groupSelect.addEventListener("change", loadGroupQuestStatus);
           groupQuestForm.addEventListener("submit", async event => {
@@ -222,6 +314,7 @@
             if (error) groupStatus.textContent = "Řešení se nepodařilo odeslat: " + error.message;
             else {
               groupQuestForm.hidden = true;
+              ideaForm.hidden = true;
               groupStatus.textContent = "Řešení družiny čeká na schválení.";
               await loadPhotoFiles("group", submissionId, true);
               if (photoFile.files.length) await uploadPhotos();
@@ -397,6 +490,7 @@
                 questForm.hidden = true;
                 questForm.reset();
                 groupSection.hidden = true;
+                teamIdeas.hidden = true;
                 groupQuestForm.reset();
                 questStatus.textContent = "Načítám stav úkolu...";
                 document.getElementById("questDialog").showModal();
