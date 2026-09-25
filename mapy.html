@@ -10,10 +10,14 @@
     body { margin: 0; min-height: 100vh; background: #0d0c11; color: #f4e4c4; font-family: Georgia, serif; }
     button { font: inherit; cursor: pointer; }
     a { color: #f1d398; }
-    header { padding: 22px 18px; border-bottom: 1px solid #5d4d38; background: #17131b; }
+    header { position: relative; z-index: 3; padding: 18px; border-bottom: 1px solid #5d4d38; background: #17131b; }
     .header-inner { max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
     h1 { margin: 0; color: #efd49b; font-size: clamp(24px, 5vw, 36px); }
-    .header-inner nav { display: flex; gap: 14px; flex-wrap: wrap; }
+    #menuToggle { display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1px solid #b69360; border-radius: 10px; background: #302634; color: #f1d398; font-size: 29px; line-height: 1; }
+    .header-inner nav { position: absolute; top: 100%; right: 18px; width: min(340px, calc(100vw - 36px)); padding: 8px; border: 1px solid #89704d; border-radius: 0 0 14px 14px; background: #211b25; box-shadow: 0 12px 28px #000a; }
+    .header-inner nav a { display: block; padding: 12px 14px; border-bottom: 1px solid #564535; text-decoration: none; }
+    .header-inner nav a:last-child { border-bottom: 0; }
+    .header-inner nav a:hover, .header-inner nav a:focus-visible { background: #3a2c36; text-decoration: underline; }
     main { max-width: 1200px; margin: 26px auto; padding: 0 16px; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 22px; align-items: start; }
     .panel { border: 1px solid #68563f; border-radius: 18px; background: #1b1720; padding: 20px; }
     h2 { margin: 0 0 10px; color: #efd49b; }
@@ -51,7 +55,8 @@
 <body>
   <header><div class="header-inner">
     <h1>⚔️ Cesta hrdiny</h1>
-    <nav><a href="postava.html">Moje postava</a><a href="urovne.html">Úrovně</a><a href="historie.html">Moje úkoly</a><a href="chat.html">Společný chat</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
+    <button id="menuToggle" type="button" aria-label="Otevřít nabídku" aria-controls="mainMenu" aria-expanded="false">☰</button>
+    <nav id="mainMenu" aria-label="Hlavní nabídka" hidden><a href="postava.html">Moje postava</a><a href="urovne.html">Úrovně</a><a href="historie.html">Moje úkoly</a><a href="chat.html">Společný chat</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
   </div></header>
   <main>
     <section class="panel" aria-labelledby="mapTitle">
@@ -112,6 +117,23 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
+    const menuButton = document.getElementById("menuToggle");
+    const menu = document.getElementById("mainMenu");
+    function closeMenu() {
+      menu.hidden = true;
+      menuButton.setAttribute("aria-expanded", "false");
+      menuButton.setAttribute("aria-label", "Otevřít nabídku");
+    }
+    menuButton.addEventListener("click", () => {
+      const opening = menu.hidden;
+      menu.hidden = !opening;
+      menuButton.setAttribute("aria-expanded", String(opening));
+      menuButton.setAttribute("aria-label", opening ? "Zavřít nabídku" : "Otevřít nabídku");
+    });
+    document.addEventListener("keydown", event => { if (event.key === "Escape") closeMenu(); });
+    document.addEventListener("pointerdown", event => {
+      if (!menu.hidden && !menu.contains(event.target) && !menuButton.contains(event.target)) closeMenu();
+    });
     const { data: { user }, error: authError } = await client.auth.getUser();
     if (authError || !user) {
       location.replace("index.html");
