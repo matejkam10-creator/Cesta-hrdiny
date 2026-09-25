@@ -95,7 +95,9 @@
       <form id="groupQuestForm" hidden>
         <label for="groupAnswer">Společné řešení družiny (10–5000 znaků)</label>
         <textarea id="groupAnswer" minlength="10" maxlength="5000" required></textarea>
+        <button id="saveGroupDraft" type="button">Uložit koncept</button>
         <button type="submit">Odevzdat za družinu</button>
+        <p id="draftStatus" role="status">Koncept uložíš tlačítkem před zavřením úkolu.</p>
       </form>
     </div>
     <div id="photoSection" hidden>
@@ -181,6 +183,8 @@
           const groupSelect = document.getElementById("groupSelect");
           const groupQuestForm = document.getElementById("groupQuestForm");
           const groupStatus = document.getElementById("groupStatus");
+          const groupAnswer = document.getElementById("groupAnswer");
+          const draftStatus = document.getElementById("draftStatus");
           const teamIdeas = document.getElementById("teamIdeas");
           const ideaList = document.getElementById("ideaList");
           const ideaForm = document.getElementById("ideaForm");
@@ -225,6 +229,7 @@
                   }
                   answer.value = combined;
                   ideaStatus.textContent = "Návrh byl přidán do konečného řešení.";
+                  draftStatus.textContent = "Neuložené změny. Před zavřením úkolu ulož koncept.";
                 });
                 card.append(button);
               }
@@ -265,11 +270,34 @@
               groupSelect.append(option);
             }
           }
+          groupAnswer.addEventListener("input", () => {
+            draftStatus.textContent = "Neuložené změny. Před zavřením úkolu ulož koncept.";
+          });
+          document.getElementById("saveGroupDraft").addEventListener("click", async event => {
+            if (!chosenQuest?.is_group_quest || !groupSelect.value || groupQuestForm.hidden) return;
+            const groupId = groupSelect.value;
+            const questId = chosenQuest.id;
+            const content = groupAnswer.value;
+            const button = event.currentTarget;
+            button.disabled = true;
+            draftStatus.textContent = "Ukládám koncept...";
+            const { error } = await client.from("group_quest_drafts").upsert({
+              group_id: groupId, quest_id: questId, character_id: character.id,
+              answer: content, updated_at: new Date().toISOString()
+            }, { onConflict: "group_id,quest_id" });
+            button.disabled = false;
+            if (error) draftStatus.textContent = "Koncept se nepodařilo uložit: " + error.message;
+            else if (content !== groupAnswer.value || chosenQuest?.id !== questId || groupSelect.value !== groupId)
+              draftStatus.textContent = "Koncept byl uložen, ale v poli jsou novější změny. Ulož ho znovu.";
+            else draftStatus.textContent = "Koncept byl uložen. Můžeš úkol zavřít a vrátit se později.";
+          });
           async function loadGroupQuestStatus() {
             if (!chosenQuest?.is_group_quest || !groupSelect.value) return;
             const questId = chosenQuest.id;
             const groupId = groupSelect.value;
             groupQuestForm.hidden = true;
+            groupAnswer.value = "";
+            draftStatus.textContent = "Koncept uložíš tlačítkem před zavřením úkolu.";
             teamIdeas.hidden = true;
             ideaStatus.textContent = "";
             resetPhotos();
@@ -294,6 +322,16 @@
               photoFile.hidden = false;
               photoStatus.textContent = "Fotky můžeš vybrat teď nebo přidat po odevzdání řešení.";
             }
+            if (!groupQuestForm.hidden) {
+              const { data: saved, error: draftError } = await client.from("group_quest_drafts")
+                .select("answer").eq("group_id", groupId).eq("quest_id", questId).maybeSingle();
+              if (chosenQuest?.id !== questId || groupSelect.value !== groupId) return;
+              if (draftError) draftStatus.textContent = "Koncept se nepodařilo načíst: " + draftError.message;
+              else if (saved && !groupAnswer.value) {
+                groupAnswer.value = saved.answer;
+                draftStatus.textContent = "Uložený koncept byl obnoven.";
+              }
+            }
             if (submission) await loadPhotoFiles("group", submission.id,
               submission.status === "pending" && memberships.find(m => m.group_id === groupId)?.role === "captain");
             await loadIdeas(groupId, questId, submission?.status !== "pending" && submission?.status !== "approved");
@@ -302,7 +340,7 @@
           groupQuestForm.addEventListener("submit", async event => {
             event.preventDefault();
             if (!chosenQuest?.is_group_quest || !groupSelect.value) return;
-            const button = groupQuestForm.querySelector("button");
+            const button = groupQuestForm.querySelector('button[type="submit"]');
             button.disabled = true;
             groupStatus.textContent = "Odesílám řešení družiny...";
             const { data: submissionId, error } = await client.rpc("submit_group_quest", {
@@ -315,6 +353,7 @@
             else {
               groupQuestForm.hidden = true;
               ideaForm.hidden = true;
+              draftStatus.textContent = "Řešení bylo odevzdáno.";
               groupStatus.textContent = "Řešení družiny čeká na schválení.";
               await loadPhotoFiles("group", submissionId, true);
               if (photoFile.files.length) await uploadPhotos();
