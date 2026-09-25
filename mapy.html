@@ -83,11 +83,11 @@
       </form>
     </div>
     <div id="photoSection" hidden>
-      <label for="photoFile">Fotka k řešení (nepovinná; JPG, PNG nebo WebP do 5 MB)</label>
-      <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp">
-      <button id="photoUpload" type="button" hidden>Přidat fotku k řešení</button>
+      <label for="photoFile">Fotky k řešení (nepovinné; nejvýše 5, každá JPG, PNG nebo WebP do 5 MB)</label>
+      <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+      <button id="photoUpload" type="button" hidden>Přidat vybrané fotky</button>
       <p id="photoStatus" role="status"></p>
-      <a id="photoLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Zobrazit přiloženou fotku</a>
+      <div id="photoLinks"></div>
     </div>
     <form method="dialog"><button class="close">Zavřít</button></form>
   </dialog>
@@ -138,6 +138,8 @@
           const locked = m => character.level < m.required_level || (m.required_level >= 10 && !member);
           let chosenQuest = null;
           let currentSubmissionId = null;
+          let currentPhotoTarget = null;
+          let photoCount = 0;
           const questForm = document.getElementById("questForm");
           const groupSection = document.getElementById("groupSection");
           const groupSelect = document.getElementById("groupSelect");
@@ -158,9 +160,10 @@
             const questId = chosenQuest.id;
             const groupId = groupSelect.value;
             groupQuestForm.hidden = true;
+            resetPhotos();
             groupStatus.textContent = "Načítám stav družinového úkolu...";
             const { data: submissions, error } = await client.from("group_submissions")
-              .select("status, review_comment").eq("group_id", groupId)
+              .select("id, status, review_comment").eq("group_id", groupId)
               .eq("quest_id", questId).order("created_at", { ascending: false }).limit(1);
             if (chosenQuest?.id !== questId || groupSelect.value !== groupId) return;
             if (error) { groupStatus.textContent = "Stav úkolu se nepodařilo načíst: " + error.message; return; }
@@ -175,7 +178,12 @@
               groupStatus.textContent = submission?.status === "returned"
                 ? "Řešení bylo vráceno: " + (submission.review_comment || "Bez komentáře") : "XP po schválení získají všichni současní členové družiny.";
               groupQuestForm.hidden = false;
+              photoSection.hidden = false;
+              photoFile.hidden = false;
+              photoStatus.textContent = "Fotky můžeš vybrat teď nebo přidat po odevzdání řešení.";
             }
+            if (submission) await loadPhotoFiles("group", submission.id,
+              submission.status === "pending" && memberships.find(m => m.group_id === groupId)?.role === "captain");
           }
           groupSelect.addEventListener("change", loadGroupQuestStatus);
           groupQuestForm.addEventListener("submit", async event => {
@@ -184,79 +192,126 @@
             const button = groupQuestForm.querySelector("button");
             button.disabled = true;
             groupStatus.textContent = "Odesílám řešení družiny...";
-            const { error } = await client.rpc("submit_group_quest", {
+            const { data: submissionId, error } = await client.rpc("submit_group_quest", {
               p_group_id: groupSelect.value,
               p_quest_id: chosenQuest.id,
               p_answer: document.getElementById("groupAnswer").value.trim()
             });
             button.disabled = false;
             if (error) groupStatus.textContent = "Řešení se nepodařilo odeslat: " + error.message;
-            else { groupQuestForm.hidden = true; groupStatus.textContent = "Řešení družiny čeká na schválení."; }
+            else {
+              groupQuestForm.hidden = true;
+              groupStatus.textContent = "Řešení družiny čeká na schválení.";
+              await loadPhotoFiles("group", submissionId, true);
+              if (photoFile.files.length) await uploadPhotos();
+            }
           });
           const questStatus = document.getElementById("questStatus");
           const photoSection = document.getElementById("photoSection");
           const photoFile = document.getElementById("photoFile");
           const photoUpload = document.getElementById("photoUpload");
           const photoStatus = document.getElementById("photoStatus");
-          const photoLink = document.getElementById("photoLink");
-          async function showPhotoLink(path) {
-            const { data, error } = await client.storage.from("quest-evidence")
-              .createSignedUrl(path, 300);
-            if (error) throw error;
-            photoLink.href = data.signedUrl;
-            photoLink.hidden = false;
-            photoFile.hidden = true;
+          const photoLinks = document.getElementById("photoLinks");
+          function resetPhotos() {
+            currentPhotoTarget = null;
+            photoCount = 0;
+            photoSection.hidden = true;
+            photoFile.value = "";
+            photoFile.hidden = false;
             photoUpload.hidden = true;
+            photoLinks.replaceChildren();
+            photoStatus.textContent = "";
           }
-          async function uploadPhoto() {
-            const file = photoFile.files[0];
-            const submissionId = currentSubmissionId;
-            if (!file) {
-              photoStatus.textContent = "Nejdřív vyber fotku.";
+          async function loadPhotoFiles(kind, id, canUpload) {
+            currentPhotoTarget = { kind, id };
+            const table = kind === "group" ? "group_submission_files" : "submission_files";
+            const column = kind === "group" ? "group_submission_id" : "submission_id";
+            const { data: files, error } = await client.from(table)
+              .select("file_url").eq(column, id).order("uploaded_at");
+            if (currentPhotoTarget?.id !== id || currentPhotoTarget?.kind !== kind) return;
+            photoSection.hidden = false;
+            photoLinks.replaceChildren();
+            if (error) { photoStatus.textContent = "Přílohy se nepodařilo načíst: " + error.message; return; }
+            photoCount = files.length;
+            files.forEach((file, index) => {
+              const link = document.createElement("a");
+              link.href = "#";
+              link.textContent = `Zobrazit fotku ${index + 1}`;
+              link.style.display = "block";
+              link.addEventListener("click", async event => {
+                event.preventDefault();
+                const { data, error: linkError } = await client.storage.from("quest-evidence")
+                  .createSignedUrl(file.file_url, 300);
+                if (linkError) photoStatus.textContent = "Fotku nelze otevřít: " + linkError.message;
+                else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+              });
+              photoLinks.append(link);
+            });
+            photoFile.hidden = !canUpload || photoCount >= 5;
+            photoUpload.hidden = !canUpload || photoCount >= 5;
+            if (photoCount >= 5) photoStatus.textContent = "Byl dosažen limit 5 fotek.";
+          }
+          async function uploadPhotos() {
+            const files = Array.from(photoFile.files);
+            const target = currentPhotoTarget;
+            if (!files.length) { photoStatus.textContent = "Nejdřív vyber fotky."; return; }
+            if (!target) return;
+            if (files.length > 5 - photoCount) {
+              photoStatus.textContent = `Můžeš přidat ještě ${5 - photoCount} fotek.`;
               return;
             }
-            if (!submissionId) return;
-            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-              photoStatus.textContent = "Vyber obrázek JPG, PNG nebo WebP do 5 MB.";
+            if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+              || file.size > 5 * 1024 * 1024)) {
+              photoStatus.textContent = "Každý obrázek musí být JPG, PNG nebo WebP do 5 MB.";
               return;
             }
             photoUpload.disabled = true;
-            photoStatus.textContent = "Nahrávám fotku...";
+            let uploaded = 0;
             try {
-              const original = await createImageBitmap(file);
-              const ratio = Math.min(1, 1600 / Math.max(original.width, original.height));
-              const canvas = document.createElement("canvas");
-              canvas.width = Math.max(1, Math.round(original.width * ratio));
-              canvas.height = Math.max(1, Math.round(original.height * ratio));
-              const ctx = canvas.getContext("2d");
-              if (!ctx) throw new Error("Fotku se nepodařilo zpracovat.");
-              ctx.fillStyle = "#fff";
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
-              original.close();
-              const blob = await new Promise((resolve, reject) => canvas.toBlob(
-                b => b ? resolve(b) : reject(new Error("Fotku se nepodařilo zpracovat.")), "image/jpeg", 0.85
-              ));
-              if (blob.size > 5 * 1024 * 1024) throw new Error("Fotka je příliš velká.");
-              const path = user.id + "/" + submissionId + ".jpg";
-              const { error: uploadError } = await client.storage.from("quest-evidence")
-                .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-              if (uploadError && String(uploadError.statusCode) !== "409") throw uploadError;
-              const { error: linkError } = await client.rpc("attach_submission_photo", {
-                p_submission_id: submissionId
-              });
-              if (linkError) throw linkError;
-              if (currentSubmissionId !== submissionId) return;
-              await showPhotoLink(path);
-              photoStatus.textContent = "Fotka byla přiložena k řešení.";
+              for (const file of files) {
+                photoStatus.textContent = `Nahrávám fotku ${uploaded + 1} z ${files.length}...`;
+                const original = await createImageBitmap(file);
+                const ratio = Math.min(1, 1600 / Math.max(original.width, original.height));
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.max(1, Math.round(original.width * ratio));
+                canvas.height = Math.max(1, Math.round(original.height * ratio));
+                const ctx = canvas.getContext("2d");
+                if (!ctx) throw new Error("Fotku se nepodařilo zpracovat.");
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
+                original.close();
+                const blob = await new Promise((resolve, reject) => canvas.toBlob(
+                  b => b ? resolve(b) : reject(new Error("Fotku se nepodařilo zpracovat.")), "image/jpeg", 0.85
+                ));
+                if (blob.size > 5 * 1024 * 1024) throw new Error("Fotka je příliš velká.");
+                const path = user.id + "/" + crypto.randomUUID() + ".jpg";
+                const { error: uploadError } = await client.storage.from("quest-evidence")
+                  .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+                if (uploadError) throw uploadError;
+                const args = target.kind === "group"
+                  ? { p_group_submission_id: target.id, p_file_path: path }
+                  : { p_submission_id: target.id, p_file_path: path };
+                const { error: attachError } = await client.rpc(
+                  target.kind === "group" ? "attach_group_photo" : "attach_personal_photo", args);
+                if (attachError) throw attachError;
+                uploaded++;
+              }
+              if (currentPhotoTarget?.id === target.id) {
+                photoFile.value = "";
+                await loadPhotoFiles(target.kind, target.id, true);
+                photoStatus.textContent = `${uploaded} fotek přiloženo k řešení.`;
+              }
             } catch (error) {
-              photoStatus.textContent = "Fotku se nepodařilo přiložit: " + error.message;
-              photoUpload.hidden = false;
+              if (currentPhotoTarget?.id === target.id) {
+                await loadPhotoFiles(target.kind, target.id, true);
+                photoStatus.textContent = `${uploaded} z ${files.length} fotek přiloženo. Chyba: ${error.message}`;
+              }
             } finally {
               photoUpload.disabled = false;
             }
           }
-          photoUpload.addEventListener("click", uploadPhoto);
+          photoUpload.addEventListener("click", uploadPhotos);
           questForm.addEventListener("submit", async event => {
             event.preventDefault();
             if (!chosenQuest) return;
@@ -274,8 +329,8 @@
               currentSubmissionId = submissionId;
               questForm.hidden = true;
               questStatus.textContent = "Řešení bylo odesláno a čeká na schválení. XP se připíše až po schválení.";
-              photoUpload.hidden = false;
-              if (photoFile.files.length) await uploadPhoto();
+              await loadPhotoFiles("personal", submissionId, true);
+              if (photoFile.files.length) await uploadPhotos();
             }
           });
           async function showMap(map, chosenTab) {
@@ -311,6 +366,7 @@
               marker.addEventListener("click", async () => {
                 chosenQuest = quest;
                 currentSubmissionId = null;
+                resetPhotos();
                 document.getElementById("questTitle").textContent = quest.name;
                 document.getElementById("questText").textContent = quest.description;
                 const difficult = { easy: "Lehká", medium: "Střední", hard: "Těžká" };
@@ -321,12 +377,6 @@
                 questForm.reset();
                 groupSection.hidden = true;
                 groupQuestForm.reset();
-                photoSection.hidden = true;
-                photoFile.value = "";
-                photoFile.hidden = false;
-                photoUpload.hidden = true;
-                photoLink.hidden = true;
-                photoStatus.textContent = "";
                 questStatus.textContent = "Načítám stav úkolu...";
                 document.getElementById("questDialog").showModal();
                 if (quest.is_group_quest) {
@@ -353,8 +403,9 @@
                   return;
                 }
                 const status = assignments?.[0]?.status;
-                if (status === "submitted") {
-                  questStatus.textContent = "Tvoje řešení čeká na schválení.";
+                if (status === "submitted" || status === "approved") {
+                  questStatus.textContent = status === "submitted"
+                    ? "Tvoje řešení čeká na schválení." : "Úkol už máš schválený.";
                   const { data: submissions, error: submissionError } = await client
                     .from("submissions").select("id")
                     .eq("assignment_id", assignments[0].id)
@@ -365,21 +416,13 @@
                     return;
                   }
                   currentSubmissionId = submissions[0].id;
-                  photoSection.hidden = false;
-                  const { data: files, error: filesError } = await client
-                    .from("submission_files").select("file_url")
-                    .eq("submission_id", currentSubmissionId).limit(1);
-                  if (filesError) photoStatus.textContent = "Přílohy se nepodařilo načíst.";
-                  else if (files?.length) {
-                    try { await showPhotoLink(files[0].file_url); }
-                    catch (error) { photoStatus.textContent = "Fotku se nepodařilo otevřít: " + error.message; }
-                  } else photoUpload.hidden = false;
+                  await loadPhotoFiles("personal", currentSubmissionId, status === "submitted");
                 }
-                else if (status === "approved") questStatus.textContent = "Úkol už máš schválený.";
                 else {
                   questStatus.textContent = status === "rejected" ? "Předchozí řešení bylo vráceno. Další pokus závisí na limitu úkolu." : "";
                   questForm.hidden = false;
                   photoSection.hidden = false;
+                  photoStatus.textContent = "Fotky můžeš vybrat teď nebo přidat po odevzdání řešení.";
                 }
               });
               view.append(marker);

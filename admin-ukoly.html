@@ -47,6 +47,22 @@
       await loadPersonalPending();
       await loadGroupPending();
     }
+    function appendPhotoLinks(card, paths, message) {
+      paths.forEach((path, index) => {
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = `Zobrazit fotku ${index + 1}`;
+        link.style.display = "block";
+        link.addEventListener("click", async event => {
+          event.preventDefault();
+          const { data, error } = await client.storage.from("quest-evidence")
+            .createSignedUrl(path, 300);
+          if (error) message.textContent = "Fotku nelze otevřít: " + error.message;
+          else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+        });
+        card.append(link);
+      });
+    }
     async function loadPersonalPending() {
       list.replaceChildren();
       status.textContent = "Načítám čekající řešení...";
@@ -72,7 +88,11 @@
       const assignmentById = new Map(assignments.map(a => [a.id, a]));
       const questById = new Map(quests.map(q => [q.id, q]));
       const characterById = new Map(characters.map(c => [c.id, c]));
-      const fileBySubmission = new Map(files.map(f => [f.submission_id, f.file_url]));
+      const filesBySubmission = new Map();
+      files.forEach(f => {
+        if (!filesBySubmission.has(f.submission_id)) filesBySubmission.set(f.submission_id, []);
+        filesBySubmission.get(f.submission_id).push(f.file_url);
+      });
       for (const submission of submissions) {
         const assignment = assignmentById.get(submission.assignment_id);
         const quest = questById.get(assignment?.quest_id);
@@ -88,20 +108,6 @@
         answer.className = "answer";
         answer.textContent = submission.text_content || "Bez textu";
         card.append(title, meta, answer);
-        const filePath = fileBySubmission.get(submission.id);
-        if (filePath) {
-          const link = document.createElement("a");
-          link.href = "#";
-          link.textContent = "Zobrazit přiloženou fotku";
-          link.addEventListener("click", async event => {
-            event.preventDefault();
-            const { data, error: linkError } = await client.storage.from("quest-evidence")
-              .createSignedUrl(filePath, 300);
-            if (linkError) { message.textContent = "Fotku nelze otevřít: " + linkError.message; return; }
-            window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-          });
-          card.append(link);
-        }
         const comment = document.createElement("textarea");
         comment.maxLength = 1000;
         comment.placeholder = "Důvod vrácení (povinný jen při vrácení)";
@@ -113,6 +119,7 @@
         reject.textContent = "Vrátit k opravě";
         const message = document.createElement("p");
         message.setAttribute("role", "status");
+        appendPhotoLinks(card, filesBySubmission.get(submission.id) || [], message);
         async function review(accepted) {
           if (!accepted && comment.value.trim().length < 3) {
             message.textContent = "Napiš důvod vrácení (alespoň 3 znaky).";
@@ -148,13 +155,15 @@
         status.textContent = list.children.length ? `Čekající řešení: ${list.children.length}` : "Žádná řešení nečekají na kontrolu.";
         return;
       }
-      const [groupsResult, questsResult, membersResult] = await Promise.all([
+      const [groupsResult, questsResult, membersResult, filesResult] = await Promise.all([
         client.from("groups").select("id, name").in("id", [...new Set(submissions.map(s => s.group_id))]),
         client.from("quests").select("id, name, xp_reward").in("id", [...new Set(submissions.map(s => s.quest_id))]),
         client.from("group_submission_members").select("submission_id, character_id")
-          .in("submission_id", submissions.map(s => s.id))
+          .in("submission_id", submissions.map(s => s.id)),
+        client.from("group_submission_files").select("group_submission_id, file_url")
+          .in("group_submission_id", submissions.map(s => s.id))
       ]);
-      if (groupsResult.error || questsResult.error || membersResult.error) {
+      if (groupsResult.error || questsResult.error || membersResult.error || filesResult.error) {
         status.textContent += " Podrobnosti družinových řešení se nepodařilo načíst.";
         return;
       }
@@ -167,6 +176,11 @@
       const groupById = new Map(groupsResult.data.map(g => [g.id, g]));
       const questById = new Map(questsResult.data.map(q => [q.id, q]));
       const characterById = new Map(characters.map(c => [c.id, c]));
+      const filesBySubmission = new Map();
+      filesResult.data.forEach(f => {
+        if (!filesBySubmission.has(f.group_submission_id)) filesBySubmission.set(f.group_submission_id, []);
+        filesBySubmission.get(f.group_submission_id).push(f.file_url);
+      });
       for (const submission of submissions) {
         const group = groupById.get(submission.group_id);
         const quest = questById.get(submission.quest_id);
@@ -185,6 +199,7 @@
         const answer = document.createElement("p");
         answer.className = "answer";
         answer.textContent = submission.answer;
+        card.append(title, meta, roster, answer);
         const comment = document.createElement("textarea");
         comment.maxLength = 1000;
         comment.placeholder = "Důvod vrácení (povinný jen při vrácení)";
@@ -197,6 +212,7 @@
         reject.textContent = "Vrátit k opravě";
         const message = document.createElement("p");
         message.setAttribute("role", "status");
+        appendPhotoLinks(card, filesBySubmission.get(submission.id) || [], message);
         async function review(accepted) {
           if (!accepted && comment.value.trim().length < 3) {
             message.textContent = "Napiš důvod vrácení (alespoň 3 znaky).";
@@ -217,7 +233,7 @@
         }
         approve.addEventListener("click", () => review(true));
         reject.addEventListener("click", () => review(false));
-        card.append(title, meta, roster, answer, comment, approve, reject, message);
+        card.append(comment, approve, reject, message);
         list.append(card);
       }
       status.textContent = `Čekající řešení: ${list.children.length}`;
