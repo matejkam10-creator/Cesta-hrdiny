@@ -38,6 +38,10 @@
     .marker.medium, .legend-dot.medium { --marker-color: #ad681f; }
     .marker.hard, .legend-dot.hard { --marker-color: #a83335; }
     .marker:focus-visible, .marker:hover { outline: 3px solid #fff; outline-offset: 3px; }
+    .location-marker { position: absolute; z-index: 2; left: 42%; top: 70%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 52px; height: 52px; border: 2px solid #ffe4ad; border-radius: 50%; background: #3d2835; color: #f8d594; box-shadow: 0 3px 15px #000c, inset 0 0 0 3px #a78049; text-decoration: none; }
+    .location-marker svg { width: 30px; height: 30px; }
+    .location-marker .location-name { position: absolute; top: calc(100% + 4px); padding: 2px 8px; border: 1px solid #e6bf80; border-radius: 7px; background: #211924e8; color: #f8dfaf; font-size: 13px; white-space: nowrap; }
+    .location-marker:focus-visible, .location-marker:hover { outline: 3px solid #fff; outline-offset: 3px; }
     .quest-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; color: #ead7b4; font-size: 14px; }
     .quest-legend span { display: inline-flex; align-items: center; gap: 7px; }
     .legend-dot { width: 17px; height: 17px; border: 2px solid #fff1ca; border-radius: 50%; background: var(--marker-color); }
@@ -81,7 +85,7 @@
       <p id="mapDescription" role="status">Načítám mapy...</p>
       <div id="mapTabs" role="tablist" aria-label="Oblasti"></div>
       <div id="mapView" class="map" aria-label="Mapa s úkoly"></div>
-      <div class="quest-legend" aria-label="Barvy úkolů podle obtížnosti"><span><i class="legend-dot easy" aria-hidden="true"></i>Lehký úkol</span><span><i class="legend-dot medium" aria-hidden="true"></i>Střední úkol</span><span><i class="legend-dot hard" aria-hidden="true"></i>Těžký úkol</span></div>
+      <div class="quest-legend" aria-label="Legenda mapy"><span><i class="legend-dot easy" aria-hidden="true"></i>Lehký úkol</span><span><i class="legend-dot medium" aria-hidden="true"></i>Střední úkol</span><span><i class="legend-dot hard" aria-hidden="true"></i>Těžký úkol</span><span id="locationLegend" hidden>🚪 Další lokace</span></div>
       <p class="note">Klepni na bod mapy a zobrazí se zadání úkolu.</p>
     </section>
     <aside class="panel" aria-label="Tvoje postava">
@@ -540,6 +544,17 @@
             label.className = "map-label";
             label.textContent = map.name;
             view.append(label);
+            const isCity = map.order_index === 1;
+            document.getElementById("locationLegend").hidden = !isCity;
+            if (isCity) {
+              const entrance = document.createElement("a");
+              entrance.className = "location-marker";
+              entrance.href = "sklad.html";
+              entrance.title = "Vstoupit do Malého skladu města";
+              entrance.setAttribute("aria-label", "Otevřít lokaci Malý sklad města");
+              entrance.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 29V12a10 10 0 0 1 20 0v17M10 28V12a6 6 0 0 1 12 0v16Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 28V12a6 6 0 0 1 12 0v16Z" fill="#a78049"/><circle cx="18" cy="21" r="1.5" fill="#241a21"/></svg><span class="location-name">Sklad</span>';
+              view.append(entrance);
+            }
             const { data: quests, error: questsError } = await client.from("quests")
               .select("id, name, description, difficulty, xp_reward, required_level, is_group_quest")
               .eq("map_id", map.id).eq("is_active", true).order("created_at");
@@ -642,7 +657,8 @@
             else tab.addEventListener("click", () => showMap(map, tab));
             tabs.append(tab);
           }
-          const first = maps.find(m => !locked(m));
+          const cityRequested = new URLSearchParams(location.search).get("oblast") === "mesto";
+          const first = (cityRequested && maps.find(m => m.order_index === 1 && !locked(m))) || maps.find(m => !locked(m));
           if (first) await showMap(first, Array.from(tabs.children)[maps.indexOf(first)]);
           else mapDescription.textContent = "Zatím nemáš přístup k žádné mapě.";
         }
