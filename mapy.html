@@ -39,7 +39,7 @@
     .marker.hard, .legend-dot.hard { --marker-color: #a83335; }
     .marker:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
     .marker:hover::before { filter: brightness(1.25); }
-    .location-marker { position: absolute; z-index: 2; left: 42%; top: 70%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; color: #f8d594; text-decoration: none; }
+    .location-marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; color: #f8d594; text-decoration: none; }
     .location-marker::before { content: ''; position: absolute; z-index: -1; inset: 12px; border: 1px solid #ffe4ad; border-radius: 50%; background: #3d2835; box-shadow: 0 2px 6px #000c, inset 0 0 0 1px #a78049; }
     .location-marker svg { width: 16px; height: 16px; }
     .location-marker:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
@@ -549,13 +549,21 @@
             const isCity = map.order_index === 1;
             document.getElementById("locationLegend").hidden = !isCity;
             if (isCity) {
-              const entrance = document.createElement("a");
-              entrance.className = "location-marker";
-              entrance.href = "sklad.html";
-              entrance.title = "Vstoupit do Malého skladu města";
-              entrance.setAttribute("aria-label", "Otevřít lokaci Malý sklad města");
-              entrance.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 29V12a10 10 0 0 1 20 0v17M10 28V12a6 6 0 0 1 12 0v16Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 28V12a6 6 0 0 1 12 0v16Z" fill="#a78049"/><circle cx="18" cy="21" r="1.5" fill="#241a21"/></svg>';
-              view.append(entrance);
+              const locations = [
+                { name: "Malý sklad města", href: "sklad.html", x: 42, y: 70 },
+                { name: "Lichvářská herna", href: "herna.html", x: 30, y: 46 }
+              ];
+              for (const place of locations) {
+                const entrance = document.createElement("a");
+                entrance.className = "location-marker";
+                entrance.href = place.href;
+                entrance.style.left = place.x + "%";
+                entrance.style.top = place.y + "%";
+                entrance.title = "Vstoupit do lokace " + place.name;
+                entrance.setAttribute("aria-label", "Otevřít lokaci " + place.name);
+                entrance.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 29V12a10 10 0 0 1 20 0v17M10 28V12a6 6 0 0 1 12 0v16Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 28V12a6 6 0 0 1 12 0v16Z" fill="#a78049"/><circle cx="18" cy="21" r="1.5" fill="#241a21"/></svg>';
+                view.append(entrance);
+              }
             }
             const { data: quests, error: questsError } = await client.from("quests")
               .select("id, name, description, difficulty, xp_reward, required_level, is_group_quest")
