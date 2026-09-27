@@ -32,16 +32,18 @@
     .map::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #100e1699, transparent 30%, transparent 72%, #100e163b); pointer-events: none; }
     .map::after { content: ''; position: absolute; inset: 12px; border: 2px solid #f1d39877; border-radius: 12px; pointer-events: none; }
     .map-label { position: absolute; top: 28px; left: 28px; z-index: 1; padding: 4px 12px; border-radius: 8px; background: #17131ba8; font-size: clamp(26px, 5vw, 46px); color: #fff1c9; text-shadow: 0 2px 7px #101010; }
-    .marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #fff; font-size: 19px; font-weight: bold; text-shadow: 0 1px 2px #0009; cursor: pointer; }
-    .marker::before { content: ''; position: absolute; z-index: -1; inset: 6px; border: 2px solid #fff1ca; border-radius: 50%; background: var(--marker-color, #9e6a30); box-shadow: 0 3px 10px #000a; }
+    .marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #fff; font-size: 11px; font-weight: bold; text-shadow: 0 1px 2px #0009; cursor: pointer; }
+    .marker::before { content: ''; position: absolute; z-index: -1; inset: 14px; border: 1px solid #fff1ca; border-radius: 50%; background: var(--marker-color, #9e6a30); box-shadow: 0 2px 5px #000a; }
     .marker.easy, .legend-dot.easy { --marker-color: #287348; }
     .marker.medium, .legend-dot.medium { --marker-color: #ad681f; }
     .marker.hard, .legend-dot.hard { --marker-color: #a83335; }
-    .marker:focus-visible, .marker:hover { outline: 3px solid #fff; outline-offset: 3px; }
-    .location-marker { position: absolute; z-index: 2; left: 42%; top: 70%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 52px; height: 52px; border: 2px solid #ffe4ad; border-radius: 50%; background: #3d2835; color: #f8d594; box-shadow: 0 3px 15px #000c, inset 0 0 0 3px #a78049; text-decoration: none; }
-    .location-marker svg { width: 30px; height: 30px; }
-    .location-marker .location-name { position: absolute; top: calc(100% + 4px); padding: 2px 8px; border: 1px solid #e6bf80; border-radius: 7px; background: #211924e8; color: #f8dfaf; font-size: 13px; white-space: nowrap; }
-    .location-marker:focus-visible, .location-marker:hover { outline: 3px solid #fff; outline-offset: 3px; }
+    .marker:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+    .marker:hover::before { filter: brightness(1.25); }
+    .location-marker { position: absolute; z-index: 2; left: 42%; top: 70%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; color: #f8d594; text-decoration: none; }
+    .location-marker::before { content: ''; position: absolute; z-index: -1; inset: 12px; border: 1px solid #ffe4ad; border-radius: 50%; background: #3d2835; box-shadow: 0 2px 6px #000c, inset 0 0 0 1px #a78049; }
+    .location-marker svg { width: 16px; height: 16px; }
+    .location-marker:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+    .location-marker:hover::before { filter: brightness(1.25); }
     .quest-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; color: #ead7b4; font-size: 14px; }
     .quest-legend span { display: inline-flex; align-items: center; gap: 7px; }
     .legend-dot { width: 17px; height: 17px; border: 2px solid #fff1ca; border-radius: 50%; background: var(--marker-color); }
@@ -552,7 +554,7 @@
               entrance.href = "sklad.html";
               entrance.title = "Vstoupit do Malého skladu města";
               entrance.setAttribute("aria-label", "Otevřít lokaci Malý sklad města");
-              entrance.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 29V12a10 10 0 0 1 20 0v17M10 28V12a6 6 0 0 1 12 0v16Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 28V12a6 6 0 0 1 12 0v16Z" fill="#a78049"/><circle cx="18" cy="21" r="1.5" fill="#241a21"/></svg><span class="location-name">Sklad</span>';
+              entrance.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 29V12a10 10 0 0 1 20 0v17M10 28V12a6 6 0 0 1 12 0v16Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 28V12a6 6 0 0 1 12 0v16Z" fill="#a78049"/><circle cx="18" cy="21" r="1.5" fill="#241a21"/></svg>';
               view.append(entrance);
             }
             const { data: quests, error: questsError } = await client.from("quests")
