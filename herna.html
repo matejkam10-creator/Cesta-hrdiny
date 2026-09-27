@@ -52,6 +52,7 @@
     .quest-card button { margin-top: 14px; padding: 11px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; font: inherit; cursor: pointer; }
     .quest-card button:disabled { opacity: .6; cursor: wait; }
     .quest-card .quest-state { color: #e6bf80; }
+    .submitted-answer { padding: 12px; border: 1px solid #6a573f; border-radius: 8px; background: #17131b; white-space: pre-wrap; overflow-wrap: anywhere; }
     .photo-links a { display: block; margin-top: 8px; }
   </style>
 </head>
@@ -162,6 +163,8 @@
 
       const uploaded = element("div");
       uploaded.hidden = true;
+      const submittedAnswer = element("p", "submitted-answer");
+      submittedAnswer.hidden = true;
       const links = element("div", "photo-links");
       const retryLabel = element("label", "", "Doplnit chybějící snímky");
       const retryInput = element("input");
@@ -172,7 +175,7 @@
       retryLabel.htmlFor = retryInput.id;
       const retryButton = element("button", "", "Přidat snímky");
       retryButton.type = "button";
-      uploaded.append(links, retryLabel, retryInput, retryButton);
+      uploaded.append(submittedAnswer, links, retryLabel, retryInput, retryButton);
       card.append(title, meta, description, state, form, uploaded);
       let submissionId = null;
       let photoCount = 0;
@@ -268,6 +271,8 @@
         submit.disabled = false;
         if (error) { state.textContent = "Řešení se nepodařilo odevzdat: " + error.message; return; }
         submissionId = data;
+        submittedAnswer.textContent = text;
+        submittedAnswer.hidden = false;
         canAddPhotos = true;
         form.hidden = true;
         uploaded.hidden = false;
@@ -292,10 +297,13 @@
           form.hidden = true;
           canAddPhotos = !approved;
           const { data: submissions, error: submissionError } = await client.from("submissions")
-            .select("id").eq("assignment_id", assignment.id)
+            .select("id, text_content").eq("assignment_id", assignment.id)
             .order("created_at", { ascending: false }).limit(1);
           if (submissionError) { state.textContent = "Přílohy se nepodařilo načíst."; return; }
           submissionId = submissions?.[0]?.id || null;
+          submittedAnswer.textContent = submissions?.[0]?.text_content || "";
+          submittedAnswer.hidden = !submittedAnswer.textContent;
+          uploaded.hidden = false;
           await loadPhotos();
           if (!approved && photoCount < 5) state.textContent = `Řešení čeká na schválení. Doplň ${5 - photoCount} snímků.`;
         } else {
