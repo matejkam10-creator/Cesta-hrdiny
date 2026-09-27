@@ -30,6 +30,17 @@
     .quest-placeholder { margin-top: 22px; padding: 16px 20px; border: 1px solid #6a573f; border-radius: 12px; background: #261f2b; }
     .quest-placeholder h3 { margin: 0 0 8px; color: #efd49b; }
     .quest-placeholder p { margin: 0; color: #cdbd9e; }
+    .quest-card { margin: 16px 0; padding: clamp(16px, 4vw, 24px); border: 1px solid #6a573f; border-radius: 14px; background: #211b25; }
+    .quest-card h4 { margin: 0 0 12px; color: #efd49b; font-size: 1.24em; }
+    .quest-card p { margin: 10px 0; }
+    .quest-meta { color: #cdbd9e; font-size: .9em; }
+    .quest-card label { display: block; margin: 16px 0 7px; }
+    .quest-card textarea, .quest-card input[type="file"] { display: block; width: 100%; max-width: 100%; padding: 12px; border: 1px solid #a88a61; border-radius: 8px; background: #17131b; color: #f4e4c4; font: inherit; }
+    .quest-card textarea { min-height: 120px; resize: vertical; }
+    .quest-card button { margin-top: 14px; padding: 11px 16px; border: 0; border-radius: 8px; background: #aa8349; color: #fff; font: inherit; cursor: pointer; }
+    .quest-card button:disabled { opacity: .6; cursor: wait; }
+    .quest-card .quest-state { color: #e6bf80; }
+    .photo-links a { display: block; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -46,7 +57,11 @@
         <h2>Lichvářská herna</h2>
         <p>Celé město je protkané černým trhem. Jeho obyvatelé žijí v chudobě pod tvrdou rukou království, a získat zkušenosti potřebné k odchodu z tohoto světa není snadné.</p>
         <p>V zapadlé lichvářské herně se však nabízí pochybná příležitost přijít k nějakým zkušenostním bodům. Každá získaná zkušenost tě může přiblížit k cestě domů — pokud tě herna dřív nepřipraví o víc, než sis přinesl.</p>
-        <section class="quest-placeholder" aria-label="Úkoly herny"><h3>Úkoly v herně</h3><p>První úkoly pro tuto lokaci teprve připravujeme.</p></section>
+        <section class="quest-placeholder" aria-labelledby="questsTitle">
+          <h3 id="questsTitle">Úkoly v herně</h3>
+          <p id="questLoading" role="status">Načítám úkoly...</p>
+          <div id="questList"></div>
+        </section>
       </div>
     </article>
   </main>
@@ -75,6 +90,230 @@
     else client.rpc("is_admin").then(({ data }) => {
       if (data) document.getElementById("adminLink").hidden = false;
     });
+  </script>
+  <script type="module">
+    const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
+    const loading = document.getElementById("questLoading");
+    const list = document.getElementById("questList");
+    const element = (tag, className, content) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content != null) node.textContent = content;
+      return node;
+    };
+
+    async function prepareScreenshot(file) {
+      const original = await createImageBitmap(file);
+      try {
+        const ratio = Math.min(1, 2000 / Math.max(original.width, original.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(original.width * ratio));
+        canvas.height = Math.max(1, Math.round(original.height * ratio));
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Snímek se nepodařilo zpracovat.");
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(original, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolve, reject) => canvas.toBlob(
+          data => data ? resolve(data) : reject(new Error("Snímek se nepodařilo zpracovat.")), "image/jpeg", .9
+        ));
+        if (blob.size > 5 * 1024 * 1024) throw new Error("Snímek je příliš velký.");
+        return blob;
+      } finally { original.close(); }
+    }
+
+    function createQuestCard(quest, user, character) {
+      const card = element("article", "quest-card");
+      const title = element("h4", "", quest.name);
+      const description = element("p", "", quest.description);
+      const meta = element("p", "quest-meta", `Lehký úkol · ${quest.xp_reward} XP · od úrovně ${quest.required_level}`);
+      const state = element("p", "quest-state", "Načítám tvůj postup...");
+      state.setAttribute("role", "status");
+      const form = element("form");
+      form.hidden = true;
+      const answerLabel = element("label", "", "Jména pěti soupeřů a stručný popis výher (10–5000 znaků)");
+      const answer = element("textarea");
+      answer.id = `answer-${quest.id}`;
+      answerLabel.htmlFor = answer.id;
+      answer.minLength = 10;
+      answer.maxLength = 5000;
+      answer.required = true;
+      const fileLabel = element("label", "", "Pět snímků výher (JPG, PNG nebo WebP; každý do 5 MB)");
+      const fileInput = element("input");
+      fileInput.type = "file";
+      fileInput.id = `proof-${quest.id}`;
+      fileInput.accept = "image/jpeg,image/png,image/webp";
+      fileInput.multiple = true;
+      fileLabel.htmlFor = fileInput.id;
+      const submit = element("button", "", "Odevzdat tento úkol");
+      submit.type = "submit";
+      form.append(answerLabel, answer, fileLabel, fileInput, submit);
+
+      const uploaded = element("div");
+      uploaded.hidden = true;
+      const links = element("div", "photo-links");
+      const retryLabel = element("label", "", "Doplnit chybějící snímky");
+      const retryInput = element("input");
+      retryInput.type = "file";
+      retryInput.id = `retry-${quest.id}`;
+      retryInput.accept = fileInput.accept;
+      retryInput.multiple = true;
+      retryLabel.htmlFor = retryInput.id;
+      const retryButton = element("button", "", "Přidat snímky");
+      retryButton.type = "button";
+      uploaded.append(links, retryLabel, retryInput, retryButton);
+      card.append(title, meta, description, state, form, uploaded);
+      let submissionId = null;
+      let photoCount = 0;
+      let canAddPhotos = false;
+
+      async function loadPhotos() {
+        if (!submissionId) return;
+        const { data: photos, error } = await client.from("submission_files")
+          .select("file_url").eq("submission_id", submissionId).order("uploaded_at");
+        if (error) { state.textContent = "Snímky se nepodařilo načíst: " + error.message; return; }
+        photoCount = photos.length;
+        links.replaceChildren();
+        photos.forEach((photo, index) => {
+          const link = element("a", "", `Zobrazit snímek ${index + 1}`);
+          link.href = "#";
+          link.addEventListener("click", async event => {
+            event.preventDefault();
+            const { data, error: linkError } = await client.storage.from("quest-evidence")
+              .createSignedUrl(photo.file_url, 300);
+            if (linkError) state.textContent = "Snímek se nepodařilo otevřít: " + linkError.message;
+            else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+          });
+          links.append(link);
+        });
+        uploaded.hidden = false;
+        retryLabel.hidden = retryInput.hidden = retryButton.hidden = !canAddPhotos || photoCount >= 5;
+      }
+
+      async function uploadPhotos(files) {
+        if (!submissionId || !files.length) return;
+        if (files.length > 5 - photoCount) {
+          state.textContent = `Můžeš přidat ještě ${5 - photoCount} snímků.`;
+          return;
+        }
+        if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+          || file.size > 5 * 1024 * 1024)) {
+          state.textContent = "Každý snímek musí být JPG, PNG nebo WebP do 5 MB.";
+          return;
+        }
+        retryButton.disabled = true;
+        let added = 0;
+        try {
+          for (const file of files) {
+            state.textContent = `Nahrávám snímek ${added + 1} z ${files.length}...`;
+            const blob = await prepareScreenshot(file);
+            const path = user.id + "/" + crypto.randomUUID() + ".jpg";
+            const { error: uploadError } = await client.storage.from("quest-evidence")
+              .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+            if (uploadError) throw uploadError;
+            const { error: attachError } = await client.rpc("attach_personal_photo", {
+              p_submission_id: submissionId, p_file_path: path
+            });
+            if (attachError) throw attachError;
+            added++;
+          }
+          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " z 5 snímků.";
+        } catch (error) {
+          state.textContent = `Přiloženo ${added} z vybraných snímků. Chyba: ${error.message}. Chybějící snímky můžeš doplnit níže.`;
+        } finally {
+          retryButton.disabled = false;
+          retryInput.value = "";
+          await loadPhotos();
+        }
+      }
+
+      retryButton.addEventListener("click", () => {
+        const files = Array.from(retryInput.files);
+        if (!files.length) { state.textContent = "Nejdřív vyber chybějící snímky."; return; }
+        uploadPhotos(files);
+      });
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const files = Array.from(fileInput.files);
+        const text = answer.value.trim();
+        if (text.length < 10 || text.length > 5000) {
+          state.textContent = "Popis musí mít 10 až 5000 znaků.";
+          return;
+        }
+        if (files.length !== 5) {
+          state.textContent = "Vyber přesně pět snímků: jeden z každé výhry.";
+          return;
+        }
+        if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+          || file.size > 5 * 1024 * 1024)) {
+          state.textContent = "Každý snímek musí být JPG, PNG nebo WebP do 5 MB.";
+          return;
+        }
+        submit.disabled = true;
+        state.textContent = "Odevzdávám řešení...";
+        const { data, error } = await client.rpc("submit_personal_quest", {
+          p_quest_id: quest.id, p_text: text
+        });
+        submit.disabled = false;
+        if (error) { state.textContent = "Řešení se nepodařilo odevzdat: " + error.message; return; }
+        submissionId = data;
+        canAddPhotos = true;
+        form.hidden = true;
+        uploaded.hidden = false;
+        state.textContent = "Řešení odevzdáno. Přikládám snímky...";
+        await uploadPhotos(files);
+      });
+
+      async function loadStatus() {
+        if (character.level < quest.required_level) {
+          state.textContent = `Dostupné od úrovně ${quest.required_level}.`;
+          form.hidden = true;
+          return;
+        }
+        const { data: assignments, error } = await client.from("quest_assignments")
+          .select("id, status").eq("quest_id", quest.id).eq("character_id", character.id)
+          .order("taken_at", { ascending: false }).limit(1);
+        if (error) { state.textContent = "Stav úkolu se nepodařilo načíst."; form.hidden = true; return; }
+        const assignment = assignments?.[0];
+        if (assignment?.status === "submitted" || assignment?.status === "approved") {
+          const approved = assignment.status === "approved";
+          state.textContent = approved ? "Schváleno · odměna připsána." : "Řešení čeká na schválení.";
+          form.hidden = true;
+          canAddPhotos = !approved;
+          const { data: submissions, error: submissionError } = await client.from("submissions")
+            .select("id").eq("assignment_id", assignment.id)
+            .order("created_at", { ascending: false }).limit(1);
+          if (submissionError) { state.textContent = "Přílohy se nepodařilo načíst."; return; }
+          submissionId = submissions?.[0]?.id || null;
+          await loadPhotos();
+          if (!approved && photoCount < 5) state.textContent = `Řešení čeká na schválení. Doplň ${5 - photoCount} snímků.`;
+        } else {
+          state.textContent = assignment ? "Předchozí řešení bylo vráceno. Můžeš ho opravit a zkusit znovu." : "Připraveno k odevzdání.";
+          form.hidden = false;
+        }
+      }
+      loadStatus().catch(error => { state.textContent = error.message; form.hidden = true; });
+      return card;
+    }
+
+    const { data: { user }, error: authError } = await client.auth.getUser();
+    if (authError || !user) location.replace("index.html");
+    else {
+      const { data: character, error: characterError } = await client.from("characters")
+        .select("id, level").eq("user_id", user.id).single();
+      if (characterError || !character) loading.textContent = "Nejdřív si vytvoř postavu.";
+      else {
+        const { data: quests, error } = await client.from("quests")
+          .select("id, name, description, difficulty, xp_reward, required_level")
+          .eq("location_key", "herna").eq("is_active", true).order("created_at");
+        if (error) loading.textContent = "Úkoly se nepodařilo načíst: " + error.message;
+        else if (!quests?.length) loading.textContent = "Úkoly v herně teprve připravujeme.";
+        else {
+          loading.hidden = true;
+          quests.forEach(quest => list.append(createQuestCard(quest, user, character)));
+        }
+      }
+    }
   </script>
 </body>
 </html>

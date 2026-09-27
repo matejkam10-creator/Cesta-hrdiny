@@ -567,7 +567,7 @@
             }
             const { data: quests, error: questsError } = await client.from("quests")
               .select("id, name, description, difficulty, xp_reward, required_level, is_group_quest")
-              .eq("map_id", map.id).eq("is_active", true).order("created_at");
+              .eq("map_id", map.id).is("location_key", null).eq("is_active", true).order("created_at");
             if (questsError || !quests?.length) {
               const empty = document.createElement("p");
               empty.className = "empty";
