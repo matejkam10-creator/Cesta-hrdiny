@@ -536,6 +536,28 @@
               if (photoFile.files.length) await uploadPhotos();
             }
           });
+          async function approvedQuestIds() {
+            const { data: isAdmin, error: adminError } = await client.rpc("is_admin");
+            if (adminError) throw adminError;
+            if (isAdmin) return new Set();
+            const { data: personal, error: personalError } = await client.from("quest_assignments")
+              .select("quest_id").eq("character_id", character.id).eq("status", "approved");
+            if (personalError) throw personalError;
+            const completed = new Set((personal || []).map(item => item.quest_id));
+            if (!member) return completed;
+            const { data: approvedGroups, error: groupError } = await client.from("group_submissions")
+              .select("id, quest_id").eq("status", "approved")
+              .in("group_id", memberships.map(item => item.group_id));
+            if (groupError) throw groupError;
+            if (!approvedGroups?.length) return completed;
+            const { data: rewardedMembers, error: membersError } = await client.from("group_submission_members")
+              .select("submission_id").eq("character_id", character.id)
+              .in("submission_id", approvedGroups.map(item => item.id));
+            if (membersError) throw membersError;
+            const rewardedIds = new Set((rewardedMembers || []).map(item => item.submission_id));
+            approvedGroups.forEach(item => { if (rewardedIds.has(item.id)) completed.add(item.quest_id); });
+            return completed;
+          }
           async function showMap(map, chosenTab) {
             tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", String(b === chosenTab)));
             document.getElementById("mapTitle").textContent = map.name;
@@ -575,9 +597,19 @@
               view.append(empty);
               return;
             }
+            let completed;
+            try { completed = await approvedQuestIds(); }
+            catch (error) {
+              const problem = document.createElement("p");
+              problem.className = "empty";
+              problem.textContent = "Splněné úkoly se nepodařilo načíst. Obnov stránku.";
+              view.append(problem);
+              return;
+            }
             const columns = [14, 32, 50, 68, 86];
             const rows = [21, 34, 47, 60, 73, 86];
             quests.forEach((quest, index) => {
+              if (completed.has(quest.id)) return;
               const slot = (index * 7) % (columns.length * rows.length);
               const x = columns[slot % columns.length];
               const y = rows[Math.floor(slot / columns.length)];
