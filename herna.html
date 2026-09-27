@@ -23,6 +23,18 @@
     .back { display: inline-block; margin-bottom: 18px; }
     .location { overflow: hidden; border: 1px solid #89704d; border-radius: 18px; background: #1b1720; }
     .location-image { display: block; width: 100%; height: auto; }
+    .image-map { position: relative; }
+    .quest-marker { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: white; font: bold 12px Georgia, serif; text-shadow: 0 1px 2px #000; cursor: pointer; }
+    .quest-marker::before { content: ''; position: absolute; z-index: -1; inset: 14px; border: 1px solid #fff1ca; border-radius: 50%; background: #287348; box-shadow: 0 2px 5px #000a; }
+    .quest-marker:hover::before { filter: brightness(1.25); }
+    .quest-marker:focus-visible { outline: 2px solid white; }
+    .quest-hint { margin: 0; padding: 10px 20px; font-size: .88em; }
+    dialog { width: min(650px, calc(100vw - 24px)); max-height: min(85vh, 1000px); padding: 0; border: 1px solid #9e7b4a; border-radius: 18px; background: #211b25; color: #f4e4c4; font: inherit; overflow: auto; }
+    dialog::backdrop { background: #000b; }
+    .dialog-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid #6a573f; background: #211b25; }
+    .dialog-head h2 { margin: 0; color: #efd49b; font-size: 1.2em; }
+    .dialog-head button { padding: 9px 14px; border: 0; border-radius: 8px; background: #aa8349; color: white; font: inherit; cursor: pointer; }
+    #questList { padding: 0 16px 12px; }
     .location-content { padding: clamp(20px, 5vw, 34px); }
     .location h2 { margin: 0 0 18px; color: #efd49b; font-size: clamp(28px, 5vw, 42px); }
     .location p { line-height: 1.6; }
@@ -52,19 +64,16 @@
   <main>
     <a class="back" href="mapy.html?oblast=mesto">← Zpět do města</a>
     <article class="location">
-      <img class="location-image" src="lokace-lichvarska-herna.webp" width="1536" height="1024" alt="Temná zanedbaná herna s hráči u stolů, lichvářovým pultem a vlhkými zdmi">
+      <div class="image-map"><img class="location-image" src="lokace-lichvarska-herna.webp" width="1536" height="1024" alt="Temná zanedbaná herna s hráči u stolů, lichvářovým pultem a vlhkými zdmi"><div id="questMarkers"></div></div>
+      <p class="quest-hint" id="questLoading" role="status">Načítám úkoly...</p>
       <div class="location-content">
         <h2>Lichvářská herna</h2>
         <p>Celé město je protkané černým trhem. Jeho obyvatelé žijí v chudobě pod tvrdou rukou království, a získat zkušenosti potřebné k odchodu z tohoto světa není snadné.</p>
         <p>V zapadlé lichvářské herně se však nabízí pochybná příležitost přijít k nějakým zkušenostním bodům. Každá získaná zkušenost tě může přiblížit k cestě domů — pokud tě herna dřív nepřipraví o víc, než sis přinesl.</p>
-        <section class="quest-placeholder" aria-labelledby="questsTitle">
-          <h3 id="questsTitle">Úkoly v herně</h3>
-          <p id="questLoading" role="status">Načítám úkoly...</p>
-          <div id="questList"></div>
-        </section>
       </div>
     </article>
   </main>
+  <dialog id="questDialog" aria-labelledby="questsTitle"><div class="dialog-head"><h2 id="questsTitle">Úkol v herně</h2><form method="dialog"><button type="submit">Zavřít</button></form></div><div id="questList"></div></dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
@@ -95,6 +104,8 @@
     const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
     const loading = document.getElementById("questLoading");
     const list = document.getElementById("questList");
+    const markers = document.getElementById("questMarkers");
+    const dialog = document.getElementById("questDialog");
     const element = (tag, className, content) => {
       const node = document.createElement(tag);
       if (className) node.className = className;
@@ -309,8 +320,22 @@
         if (error) loading.textContent = "Úkoly se nepodařilo načíst: " + error.message;
         else if (!quests?.length) loading.textContent = "Úkoly v herně teprve připravujeme.";
         else {
-          loading.hidden = true;
-          quests.forEach(quest => list.append(createQuestCard(quest, user, character)));
+          loading.textContent = "Klepni na zelené ! v obrázku a otevřeš úkol.";
+          const positions = [[27, 28], [43, 51], [89, 38]];
+          quests.forEach((quest, index) => {
+            const marker = element("button", "quest-marker", "!");
+            marker.type = "button";
+            marker.style.left = positions[index % positions.length][0] + "%";
+            marker.style.top = positions[index % positions.length][1] + "%";
+            marker.title = quest.name;
+            marker.setAttribute("aria-label", "Otevřít úkol: " + quest.name);
+            marker.addEventListener("click", () => {
+              document.getElementById("questsTitle").textContent = quest.name;
+              list.replaceChildren(createQuestCard(quest, user, character));
+              dialog.showModal();
+            });
+            markers.append(marker);
+          });
         }
       }
     }
