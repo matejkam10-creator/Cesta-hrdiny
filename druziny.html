@@ -50,7 +50,7 @@
   </section>
   <section class="card">
     <h3>Vytvořit novou družinu</h3>
-    <p>Založit ji může postava od úrovně 10.</p>
+    <p>Družinu můžeš založit od úrovně 10 po schválení úkolu „Ve více se to lépe táhne“ na mapě Města. Do jedné družiny se vejde nejvýše pět postav.</p>
     <label for="nazevDruziny">Název družiny</label>
     <input id="nazevDruziny" type="text" placeholder="Například Strážci lesa">
     <button id="vytvorDruzinu">Vytvořit družinu</button>
@@ -147,6 +147,13 @@ if (!postava) {
 if (postava.level < 10) {
   document.getElementById("zprava").textContent =
     "Družinu můžeš založit až od úrovně 10.";
+  return;
+}
+const { data: pristup, error: pristupError } = await client.rpc("can_join_group", { p_character_id: postava.id });
+if (pristupError || !pristup) {
+  document.getElementById("zprava").textContent = pristupError
+    ? "Přístup k družinám se nepodařilo ověřit: " + pristupError.message
+    : "Nejprve dokonči a nech schválit úkol „Ve více se to lépe táhne“ na mapě Města.";
   return;
 }
   if (!nazev) {
