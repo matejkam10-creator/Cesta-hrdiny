@@ -569,12 +569,16 @@
             label.textContent = map.name;
             view.append(label);
             const isCity = map.order_index === 1;
-            document.getElementById("locationLegend").hidden = !isCity;
-            if (isCity) {
-              const locations = [
+            const isNature = map.name === "Divoká krajina";
+            document.getElementById("locationLegend").hidden = !isCity && !isNature;
+            if (isCity || isNature) {
+              const locations = isCity ? [
                 { name: "Malý sklad města", href: "sklad.html", x: 42, y: 70 },
                 { name: "Lichvářská herna", href: "herna.html", x: 30, y: 46 },
-                { name: "Knihovna", href: "knihovna.html", x: 73, y: 34 }
+                { name: "Knihovna", href: "knihovna.html", x: 73, y: 34 },
+                { name: "Kuchyně", href: "kuchyne.html", x: 61, y: 62 }
+              ] : [
+                { name: "Bažina krutosti", href: "bazina.html", x: 74, y: 70 }
               ];
               for (const place of locations) {
                 const entrance = document.createElement("a");
@@ -700,13 +704,16 @@
             else tab.addEventListener("click", () => showMap(map, tab));
             tabs.append(tab);
           }
-          const cityRequested = new URLSearchParams(location.search).get("oblast") === "mesto";
-          const first = (cityRequested && maps.find(m => m.order_index === 1 && !locked(m))) || maps.find(m => !locked(m));
+          const requestedArea = new URLSearchParams(location.search).get("oblast");
+          const first = (requestedArea === "mesto" && maps.find(m => m.order_index === 1 && !locked(m)))
+            || (requestedArea === "divocina" && maps.find(m => m.name === "Divoká krajina" && !locked(m)))
+            || maps.find(m => !locked(m));
           if (first) await showMap(first, Array.from(tabs.children)[maps.indexOf(first)]);
           else mapDescription.textContent = "Zatím nemáš přístup k žádné mapě.";
         }
       }
     }
   </script>
+  <script src="navigace.js" defer></script>
 </body>
 </html>
