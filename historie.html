@@ -14,8 +14,13 @@
     .tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
     button { padding: 10px 16px; border: 1px solid #806a4b; border-radius: 9px; background: #26202a; color: #f4e4c4; font: inherit; cursor: pointer; }
     button[aria-selected="true"] { background: #866333; border-color: #e3be7c; }
-    .card { margin: 16px 0; padding: 20px; border: 1px solid #6a573f; border-radius: 16px; background: #1b1720; }
-    .card h2 { margin: 0 0 12px; }
+    .category { margin-top: 30px; }
+    .category h2 { margin: 0 0 12px; color: #efd49b; }
+    .card { margin: 12px 0; padding: 0; border: 1px solid #6a573f; border-radius: 16px; background: #1b1720; }
+    .card summary { padding: 18px 20px; color: #efd49b; font-size: 1.15em; font-weight: bold; cursor: pointer; }
+    .card summary:focus-visible { outline: 2px solid #efd49b; outline-offset: -4px; }
+    .card[open] { padding: 0 20px 20px; }
+    .card[open] summary { margin: 0 -20px 14px; border-bottom: 1px solid #6a573f; }
     .meta { color: #cdbd9e; }
     .answer, .comment { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; padding: 12px; border: 1px solid #544b42; border-radius: 8px; background: #141218; }
     .comment { border-color: #9a7354; }
@@ -95,6 +100,20 @@
     }
     personalTab.addEventListener("click", () => selectTab(false));
     groupTab.addEventListener("click", () => selectTab(true));
+    function makeCategories(parent) {
+      const result = {};
+      for (const [key, title] of [["accepted", "Přijaté úkoly"], ["approved", "Splněné úkoly"], ["returned", "Vrácené úkoly"]]) {
+        const section = document.createElement("section");
+        section.className = "category";
+        const heading = document.createElement("h2");
+        heading.textContent = title;
+        const items = document.createElement("div");
+        section.append(heading, items);
+        parent.append(section);
+        result[key] = items;
+      }
+      return result;
+    }
 
     function appendPhotos(card, paths) {
       if (!paths.length) return;
@@ -115,9 +134,9 @@
       card.append(links);
     }
     function appendCard(container, item) {
-      const card = document.createElement("article");
+      const card = document.createElement("details");
       card.className = "card";
-      const heading = document.createElement("h2");
+      const heading = document.createElement("summary");
       heading.textContent = item.title;
       const meta = document.createElement("p");
       meta.className = "meta";
@@ -203,10 +222,10 @@
         if (attachError) throw attachError;
       }
     }
-    function appendAcceptedCard(quest, acceptedAt, character, latest) {
-      const card = document.createElement("article");
+    function appendAcceptedCard(container, quest, acceptedAt, character, latest) {
+      const card = document.createElement("details");
       card.className = "card";
-      const title = document.createElement("h2");
+      const title = document.createElement("summary");
       title.textContent = quest.name;
       const meta = document.createElement("p");
       meta.className = "meta";
@@ -221,6 +240,19 @@
       link.href = locationPages[quest.location_key] || "mapy.html";
       link.textContent = "Zobrazit místo na mapě";
       card.append(title, meta, description, link, note);
+      if (latest?.status === "returned" && latest.review_comment) {
+        const comment = document.createElement("p");
+        comment.className = "comment";
+        comment.textContent = "Komentář admina: " + latest.review_comment;
+        card.append(comment);
+      }
+      if (latest?.text_content) {
+        const previous = document.createElement("p");
+        previous.className = "answer";
+        previous.textContent = "Poslední vypracování: " + latest.text_content;
+        card.append(previous);
+      }
+      if (latest?.photos?.length) appendPhotos(card, latest.photos);
       const allowed = evidenceFor(quest.name);
       const min = Math.min(...allowed), max = Math.max(...allowed);
       const form = document.createElement("form");
@@ -284,7 +316,7 @@
           }
         });
       } else note.textContent = "Úkol již není dostupný k odevzdání.";
-      personalList.append(card);
+      container.append(card);
     }
     const { data: { user }, error: authError } = await client.auth.getUser();
     if (authError || !user) location.replace("index.html");
@@ -324,33 +356,60 @@
           latestByQuest.set(questId, { ...s, photos: personalFileMap.get(s.id) || [] });
         }
       }
+      const personalSections = makeCategories(personalList);
+      const groupSections = makeCategories(groupList);
+      const approvedQuestIds = new Set(personal.filter(s => s.status === "approved")
+        .map(s => assignmentById.get(s.assignment_id)?.quest_id));
+      const acceptedIds = new Set(accepted.map(a => a.quest_id));
       let activeCount = 0;
       for (const entry of accepted) {
         const quest = questById.get(entry.quest_id);
         const latest = latestByQuest.get(entry.quest_id);
-        if (!quest || latest?.status === "approved") continue;
-        appendAcceptedCard(quest, entry.accepted_at, character, latest);
+        if (!quest || approvedQuestIds.has(entry.quest_id)) continue;
+        appendAcceptedCard(latest?.status === "returned" ? personalSections.returned : personalSections.accepted,
+          quest, entry.accepted_at, character, latest);
         activeCount++;
       }
-      for (const s of personal) {
-        const quest = questById.get(assignmentById.get(s.assignment_id)?.quest_id);
-        appendCard(personalList, {
+      const displayedPersonal = new Set();
+      for (const s of [...personal.filter(s => s.status === "approved"), ...personal.filter(s => s.status !== "approved")]) {
+        const questId = assignmentById.get(s.assignment_id)?.quest_id;
+        if (!questId || displayedPersonal.has(questId)) continue;
+        displayedPersonal.add(questId);
+        if (acceptedIds.has(questId) && !approvedQuestIds.has(questId)) continue;
+        const quest = questById.get(questId);
+        const target = s.status === "approved" ? personalSections.approved
+          : s.status === "returned" ? personalSections.returned : personalSections.accepted;
+        appendCard(target, {
           title: quest?.name || "Osobní úkol", xp_reward: quest?.xp_reward ?? 0,
           created_at: s.created_at, status: s.status, answer: s.text_content,
           review_comment: s.review_comment, photos: personalFileMap.get(s.id) || []
         });
       }
-      for (const s of grouped) {
+      const displayedGroup = new Set();
+      for (const s of [...grouped.filter(s => s.status === "approved"), ...grouped.filter(s => s.status !== "approved")]) {
+        const key = s.group_id + ":" + s.quest_id;
+        if (displayedGroup.has(key)) continue;
+        displayedGroup.add(key);
         const quest = questById.get(s.quest_id);
-        appendCard(groupList, {
+        const target = s.status === "approved" ? groupSections.approved
+          : s.status === "returned" ? groupSections.returned : groupSections.accepted;
+        appendCard(target, {
           title: (groupById.get(s.group_id)?.name || "Družina") + " · " + (quest?.name || "Úkol"),
           xp_reward: quest?.xp_reward ?? 0, created_at: s.created_at, status: s.status,
           answer: s.answer, review_comment: s.review_comment,
           photos: groupFileMap.get(s.id) || []
         });
       }
-      if (!personal.length && !activeCount) personalList.textContent = "Zatím nemáš žádné přijaté ani odevzdané osobní úkoly.";
-      if (!grouped.length) groupList.textContent = "Tvoje družina zatím nemá žádné odevzdané úkoly.";
+      for (const sections of [personalSections, groupSections]) {
+        for (const items of Object.values(sections)) {
+          if (!items.children.length) {
+            const empty = document.createElement("p");
+            empty.className = "meta";
+            empty.textContent = "Zatím žádné úkoly.";
+            items.append(empty);
+          }
+        }
+      }
       status.textContent = `Přijaté úkoly k plnění: ${activeCount} · Osobní řešení: ${personal.length} · Družinová řešení: ${grouped.length}`;
     } catch (error) {
       status.textContent = "Historii úkolů se nepodařilo načíst: " + error.message;
