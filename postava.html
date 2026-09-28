@@ -56,6 +56,14 @@
 <main>
   <h2>Moje postava</h2>
   <section id="postava" class="karta">Načítám tvoji postavu...</section>
+  <form id="createCharacter" class="karta" hidden>
+    <h3>Vytvořit postavu</h3>
+    <p>Vyber si herní jméno. Nepoužívej své občanské jméno ani jiné soukromé údaje.</p>
+    <label for="characterName">Herní jméno (2–30 znaků)</label>
+    <input id="characterName" minlength="2" maxlength="30" required autocomplete="off">
+    <button type="submit">Vstoupit do hry</button>
+    <p id="createStatus" role="status"></p>
+  </form>
   <div id="profileActions" hidden>
     <button id="showEdit" type="button" aria-controls="editPanel" aria-expanded="false">Upravit profil</button>
     <button id="showAvatar" type="button" aria-controls="avatarPanel" aria-expanded="false">Nahrát fotku</button>
@@ -117,9 +125,26 @@
   .from("characters")
   .select("*")
   .eq("user_id", user.id)
-  .single();
+  .maybeSingle();
     if (error) {
   document.getElementById("postava").textContent = "Postavu se nepodařilo načíst.";
+} else if (!postava) {
+  document.getElementById("postava").textContent = "Vítej ve hře. Nejprve si vytvoř postavu.";
+  const createForm = document.getElementById("createCharacter");
+  createForm.hidden = false;
+  createForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const name = document.getElementById("characterName").value.trim();
+    const status = document.getElementById("createStatus");
+    if (name.length < 2 || name.length > 30) { status.textContent = "Herní jméno musí mít 2 až 30 znaků."; return; }
+    const button = createForm.querySelector("button");
+    button.disabled = true;
+    status.textContent = "Vytvářím postavu...";
+    const { error: createError } = await client.rpc("register_player_character", { p_name: name });
+    button.disabled = false;
+    if (createError) { status.textContent = "Postavu se nepodařilo vytvořit: " + createError.message; return; }
+    window.location.replace("mapy.html");
+  });
 } else {
       const karta = document.getElementById("postava");
       karta.replaceChildren();

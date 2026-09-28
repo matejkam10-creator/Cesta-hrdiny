@@ -78,6 +78,11 @@
     }
 
     .register span { color: #e8c47c; }
+    .register button { width: auto; margin: 0; padding: 0; border: 0; background: none; color: #e8c47c; font: inherit; text-decoration: underline; cursor: pointer; }
+    [hidden] { display: none !important; }
+    label { display: block; margin-top: 12px; text-align: left; }
+    .helper { color: #b9ad9d; font-size: 14px; line-height: 1.5; }
+    button:disabled { opacity: .6; cursor: wait; }
 
     #status {
       min-height: 22px;
@@ -100,17 +105,34 @@
     <section class="card">
       <h2>Přihlášení</h2>
 
-      <input id="email" type="email" placeholder="E-mail">
-      <input id="password" type="password" placeholder="Heslo">
+      <label for="email">E-mail</label>
+      <input id="email" type="email" autocomplete="email" required placeholder="E-mail">
+      <label for="password">Heslo</label>
+      <input id="password" type="password" autocomplete="current-password" required placeholder="Heslo">
 
       <button id="login">Přihlásit se</button>
       <button id="reset" type="button">Zapomenuté heslo</button>
 
-      <div id="status"></div>
+      <div id="status" role="status" aria-live="polite"></div>
 
       <p class="register">
-        Ještě nemáš účet? <span>Vytvořit účet</span>
+        Ještě nemáš účet? <button id="showRegister" type="button">Vytvořit účet</button>
       </p>
+    </section>
+    <section id="registration" class="card" hidden>
+      <h2>Vytvořit účet</h2>
+      <p class="helper">Stačí e-mail a heslo. Jméno, adresu ani telefon pro registraci nepotřebujeme. Tvé herní jméno si vybereš po přihlášení.</p>
+      <form id="registerForm">
+        <label for="registerEmail">E-mail</label>
+        <input id="registerEmail" type="email" autocomplete="email" required maxlength="254">
+        <label for="registerPassword">Heslo (nejméně 12 znaků)</label>
+        <input id="registerPassword" type="password" autocomplete="new-password" minlength="12" required>
+        <label for="registerConfirm">Potvrď heslo</label>
+        <input id="registerConfirm" type="password" autocomplete="new-password" minlength="12" required>
+        <button type="submit">Vytvořit účet</button>
+      </form>
+      <p id="registrationStatus" role="status" aria-live="polite"></p>
+      <p class="register"><button id="showLogin" type="button">Zpět na přihlášení</button></p>
     </section>
   </main>
 
@@ -121,6 +143,47 @@
     const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const loginCard = document.querySelector(".card");
+    const registration = document.getElementById("registration");
+    document.getElementById("showRegister").addEventListener("click", () => {
+      loginCard.hidden = true;
+      registration.hidden = false;
+      document.getElementById("registerEmail").focus();
+    });
+    document.getElementById("showLogin").addEventListener("click", () => {
+      registration.hidden = true;
+      loginCard.hidden = false;
+      document.getElementById("email").focus();
+    });
+    document.getElementById("registerForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const status = document.getElementById("registrationStatus");
+      const email = document.getElementById("registerEmail").value.trim();
+      const password = document.getElementById("registerPassword").value;
+      const confirm = document.getElementById("registerConfirm").value;
+      if (password !== confirm) { status.textContent = "Hesla se neshodují."; return; }
+      if (password.length < 12) { status.textContent = "Heslo musí mít alespoň 12 znaků."; return; }
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      status.textContent = "Vytvářím účet...";
+      const emailRedirectTo = new URL("index.html", window.location.href).href;
+      const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo } });
+      button.disabled = false;
+      if (error) {
+        status.textContent = error.message.includes("password")
+          ? "Heslo nevyhovuje bezpečnostním pravidlům. Vyber delší a méně obvyklé heslo."
+          : "Účet se teď nepodařilo vytvořit. Zkus to prosím později.";
+        return;
+      }
+      form.reset();
+      if (data.session) {
+        await client.auth.signOut();
+        status.textContent = "Potvrzení e-mailu zatím není zapnuté. Registraci dokončíme až po nastavení ochrany účtů.";
+        return;
+      }
+      status.textContent = "Pokud může být účet vytvořen, přijde ti potvrzovací odkaz e-mailem. Po potvrzení se přihlas. Zkontroluj i složku Spam.";
+    });
 
     document.getElementById("reset").addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
@@ -134,7 +197,7 @@
       const redirectTo = new URL("reset-hesla.html", window.location.href).href;
       const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
       status.textContent = error
-        ? "Odkaz se nepodařilo odeslat: " + error.message
+        ? "Požadavek se teď nepodařilo dokončit. Zkus to později."
         : "Pokud účet existuje, přijde na zadaný e-mail odkaz pro obnovu hesla.";
       button.disabled = false;
     });
@@ -152,13 +215,13 @@
       });
 
       if (error) {
-        status.textContent = "Přihlášení se nezdařilo: " + error.message;
+        status.textContent = "Přihlášení se nezdařilo. Zkontroluj e-mail, heslo a potvrzení účtu.";
         
         return;
       }
 
       status.textContent = "Přihlášení proběhlo úspěšně.";
-      window.location.href = "mapy.html";
+      window.location.href = "postava.html";
     });
   </script>
 </body>
