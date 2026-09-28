@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hráči | Cesta hrdiny</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin:0; min-height:100vh; font:18px Georgia,serif; color:#f4e4c4; background:#0d0c11 radial-gradient(circle at 12% 8%, #382b3b, transparent 32rem); }
+    a { color:#f1d398; }
+    header { position:relative; z-index:3; padding:18px; border-bottom:1px solid #5d4d38; background:#17131b; }
+    .header-inner { max-width:1200px; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    header h1 { margin:0; color:#efd49b; font-size:clamp(24px,5vw,36px); }
+    header h1 a { color:inherit; text-decoration:none; }
+    #menuToggle { display:grid; place-items:center; width:48px; height:48px; border:1px solid #b69360; border-radius:10px; background:#302634; color:#f1d398; font:29px Georgia,serif; cursor:pointer; }
+    #mainMenu { position:absolute; top:100%; right:18px; width:min(340px,calc(100vw - 36px)); padding:8px; border:1px solid #89704d; border-radius:0 0 14px 14px; background:#211b25; box-shadow:0 12px 28px #000a; }
+    #mainMenu a { display:block; padding:12px 14px; border-bottom:1px solid #564535; text-decoration:none; }
+    #mainMenu a:hover, #mainMenu button:hover, #mainMenu a:focus-visible, #mainMenu button:focus-visible { background:#3a2c36 !important; }
+    main { max-width:900px; margin:34px auto; padding:0 18px; }
+    main h1 { color:#efd49b; }
+    .intro { color:#cdbd9e; line-height:1.5; }
+    #players { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr)); gap:16px; margin-top:24px; }
+    article { border:1px solid #68563f; border-radius:16px; background:#1b1720; padding:22px; overflow-wrap:anywhere; }
+    article h2 { margin:0 0 8px; color:#efd49b; font-size:1.25em; }
+    article p { margin:8px 0; }
+    .muted { color:#cdbd9e; }
+  </style>
+</head>
+<body>
+  <header><div class="header-inner">
+    <h1><a href="mapy.html">⚔️ Cesta hrdiny</a></h1>
+    <button id="menuToggle" type="button" aria-label="Otevřít nabídku" aria-controls="mainMenu" aria-expanded="false">☰</button>
+    <nav id="mainMenu" aria-label="Hlavní nabídka" hidden><a href="mapy.html">Mapy</a><a href="postava.html">Moje postava</a><a href="urovne.html">Úrovně</a><a href="historie.html">Moje úkoly</a><a href="chat.html">Společný chat</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
+  </div></header>
+  <main>
+    <h1>Hráči</h1>
+    <p class="intro">Postavy, které potkáš v Cestě hrdiny. Zobrazují se pouze herní jména, titul a úroveň.</p>
+    <p id="status" role="status">Načítám postavy...</p>
+    <div id="players"></div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const menu = document.getElementById('mainMenu');
+    const toggle = document.getElementById('menuToggle');
+    toggle.addEventListener('click', () => {
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    const client = supabase.createClient('https://qgnallfqanixepfvrzjn.supabase.co', 'sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi');
+    (async () => {
+      const { data: { user }, error: authError } = await client.auth.getUser();
+      if (authError || !user) { location.replace('index.html'); return; }
+      const [{ data, error }, { data: isAdmin }] = await Promise.all([
+        client.rpc('list_player_characters'), client.rpc('is_admin')
+      ]);
+      if (isAdmin) document.getElementById('adminLink').hidden = false;
+      const status = document.getElementById('status');
+      if (error || !Array.isArray(data)) { status.textContent = 'Seznam hráčů se nepodařilo načíst.'; return; }
+      if (!data.length) { status.textContent = 'Zatím tu nejsou žádné postavy.'; return; }
+      status.textContent = `Postav: ${data.length}`;
+      const list = document.getElementById('players');
+      for (const character of data) {
+        const card = document.createElement('article');
+        const name = document.createElement('h2');
+        name.textContent = character.nickname || character.name || 'Bezejmenná postava';
+        card.append(name);
+        if (character.nickname && character.name && character.nickname !== character.name) {
+          const gameName = document.createElement('p');
+          gameName.className = 'muted';
+          gameName.textContent = `Herní jméno: ${character.name}`;
+          card.append(gameName);
+        }
+        const info = document.createElement('p');
+        info.textContent = `${character.title || 'Novic'} · Úroveň ${character.level ?? 1}`;
+        card.append(info);
+        list.append(card);
+      }
+    })();
+  </script>
+  <script src="navigace.js" defer></script>
+</body>
+</html>
