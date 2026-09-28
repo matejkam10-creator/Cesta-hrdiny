@@ -22,6 +22,8 @@
     .intro { color:#cdbd9e; line-height:1.5; }
     #players { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr)); gap:16px; margin-top:24px; }
     article { border:1px solid #68563f; border-radius:16px; background:#1b1720; padding:22px; overflow-wrap:anywhere; }
+    .player-heading { display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+    .player-avatar { flex:none; display:grid; place-items:center; width:64px; height:64px; border:2px solid #e4c48a; border-radius:50%; background:#332a39; object-fit:cover; font-size:30px; }
     article h2 { margin:0 0 8px; color:#efd49b; font-size:1.25em; }
     article p { margin:8px 0; }
     .muted { color:#cdbd9e; }
@@ -35,7 +37,7 @@
   </div></header>
   <main>
     <h1>Hráči</h1>
-    <p class="intro">Postavy, které potkáš v Cestě hrdiny. Zobrazují se pouze herní jména, titul a úroveň.</p>
+    <p class="intro">Postavy, které potkáš v Cestě hrdiny. Zobrazují se pouze herní jména, avatar, titul a úroveň.</p>
     <p id="status" role="status">Načítám postavy...</p>
     <div id="players"></div>
   </main>
@@ -60,11 +62,32 @@
       if (!data.length) { status.textContent = 'Zatím tu nejsou žádné postavy.'; return; }
       status.textContent = `Postav: ${data.length}`;
       const list = document.getElementById('players');
+      const avatarBase = 'https://qgnallfqanixepfvrzjn.supabase.co/storage/v1/object/public/avatars/';
+      function avatarFor(url) {
+        const fallback = () => {
+          const icon = document.createElement('span');
+          icon.className = 'player-avatar';
+          icon.textContent = '👤';
+          icon.setAttribute('aria-hidden', 'true');
+          return icon;
+        };
+        if (typeof url !== 'string' || !url.startsWith(avatarBase)) return fallback();
+        const picture = document.createElement('img');
+        picture.className = 'player-avatar';
+        picture.src = url;
+        picture.alt = '';
+        picture.loading = 'lazy';
+        picture.addEventListener('error', () => picture.replaceWith(fallback()), { once: true });
+        return picture;
+      }
       for (const character of data) {
         const card = document.createElement('article');
+        const heading = document.createElement('div');
+        heading.className = 'player-heading';
         const name = document.createElement('h2');
         name.textContent = character.nickname || character.name || 'Bezejmenná postava';
-        card.append(name);
+        heading.append(avatarFor(character.avatar_url), name);
+        card.append(heading);
         if (character.nickname && character.name && character.nickname !== character.name) {
           const gameName = document.createElement('p');
           gameName.className = 'muted';
