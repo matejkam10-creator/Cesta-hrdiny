@@ -78,6 +78,42 @@
   </main>
   <dialog id="questDialog" aria-labelledby="questsTitle"><div class="dialog-head"><h2 id="questsTitle">Úkol v aréně</h2><form method="dialog"><button type="submit">Zavřít</button></form></div><div id="questList"></div></dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+// Tlacitko pro ulozeni osobniho ukolu do seznamu Moje ukoly.
+window.createAcceptQuestButton = function (client, quest, character) {
+  const wrap = document.createElement('div');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Přijmout úkol';
+  const status = document.createElement('p');
+  status.setAttribute('role', 'status');
+  wrap.append(button, status);
+  if (character.level < quest.required_level || quest.is_group_quest) {
+    wrap.hidden = true;
+    return wrap;
+  }
+  function accepted() {
+    button.hidden = true;
+    status.replaceChildren();
+    status.append('Úkol je v sekci ', Object.assign(document.createElement('a'), {
+      href: 'historie.html', textContent: 'Moje úkoly'
+    }), '.');
+  }
+  client.from('accepted_quests').select('quest_id')
+    .eq('character_id', character.id).eq('quest_id', quest.id).maybeSingle()
+    .then(({data}) => { if (data) accepted(); });
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    status.textContent = 'Přijímám úkol...';
+    const {error} = await client.rpc('accept_personal_quest', {p_quest_id: quest.id});
+    button.disabled = false;
+    if (error) status.textContent = 'Úkol se nepodařilo přijmout: ' + error.message;
+    else accepted();
+  });
+  return wrap;
+};
+
+  </script>
   <script type="module">
     const client = supabase.createClient("https://qgnallfqanixepfvrzjn.supabase.co", "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi");
     const menuButton = document.getElementById("menuToggle");
@@ -188,7 +224,7 @@
       const retryButton = element("button", "", "Přidat snímky");
       retryButton.type = "button";
       uploaded.append(submittedAnswer, links, retryLabel, retryInput, retryButton);
-      card.append(title, meta, description, state, form, uploaded);
+      card.append(title, meta, description, state, createAcceptQuestButton(client, quest, character), form, uploaded);
       let submissionId = null;
       let photoCount = 0;
       let canAddPhotos = false;

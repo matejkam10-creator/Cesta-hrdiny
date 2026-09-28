@@ -23,6 +23,8 @@
     .approved { color: #a6dab1; }
     .returned { color: #edbc9c; }
     .pending { color: #efd49b; }
+    .card textarea, .card input[type="file"] { display: block; width: 100%; margin: 10px 0; padding: 12px; border: 1px solid #806a4b; border-radius: 8px; background: #141218; color: #f4e4c4; font: inherit; }
+    .card textarea { min-height: 120px; }
 
     /* Stejná hlavička a nabídka jako na mapách. */
     [hidden] { display: none !important; }
@@ -47,7 +49,7 @@
 
   <main>
     <h1>Moje úkoly</h1>
-    <p id="status" role="status">Načítám odevzdaná řešení...</p>
+    <p id="status" role="status">Načítám přijaté a odevzdané úkoly...</p>
     <div class="tabs" role="tablist" aria-label="Druh úkolů">
       <button id="personalTab" type="button" role="tab" aria-selected="true" aria-controls="personalList">Osobní úkoly</button>
       <button id="groupTab" type="button" role="tab" aria-selected="false" aria-controls="groupList">Družinové úkoly</button>
@@ -154,26 +156,157 @@
       if (error) throw new Error(`${table}: ${error.message}`);
       return data || [];
     }
+    function evidenceFor(name) {
+      const special = {
+        "Tři ilustrace pro Felisku": [4],
+        "Ďáblova jáma: jeden týden": [1],
+        "Ďáblova jáma: tři týdny": [3],
+        "Ďáblova jáma: pět týdnů": [5],
+        "Pět zápasů v soubojovém klubu": [1, 2],
+        "Najdi místo pro arénu": [3],
+        "Pět vítězství v soubojovém klubu": [4, 5],
+        "Příběh gladiátorských soubojů": [0],
+        "Pět nových kouzel": [3, 5]
+      };
+      return special[name] || [1];
+    }
+    const locationPages = {
+      kuchyne: "kuchyne.html", knihovna: "knihovna.html", herna: "herna.html",
+      arena: "arena.html", bazina: "bazina.html"
+    };
+    async function attachEvidence(submissionId, files, note) {
+      for (let index = 0; index < files.length; index++) {
+        note.textContent = `Nahrávám obrázek ${index + 1} z ${files.length}...`;
+        const source = await createImageBitmap(files[index]);
+        let blob;
+        try {
+          const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(source.width * scale));
+          canvas.height = Math.max(1, Math.round(source.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+          blob = await new Promise((resolve, reject) => canvas.toBlob(
+            data => data ? resolve(data) : reject(new Error("Obrázek se nepodařilo zpracovat.")), "image/jpeg", .85
+          ));
+        } finally { source.close(); }
+        if (blob.size > 5 * 1024 * 1024) throw new Error("Obrázek je příliš velký.");
+        const path = (await client.auth.getUser()).data.user.id + "/" + crypto.randomUUID() + ".jpg";
+        const { error: uploadError } = await client.storage.from("quest-evidence")
+          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        if (uploadError) throw uploadError;
+        const { error: attachError } = await client.rpc("attach_personal_photo", {
+          p_submission_id: submissionId, p_file_path: path
+        });
+        if (attachError) throw attachError;
+      }
+    }
+    function appendAcceptedCard(quest, acceptedAt, character, latest) {
+      const card = document.createElement("article");
+      card.className = "card";
+      const title = document.createElement("h2");
+      title.textContent = quest.name;
+      const meta = document.createElement("p");
+      meta.className = "meta";
+      meta.textContent = `Přijato ${new Date(acceptedAt).toLocaleString("cs-CZ")} · ${quest.xp_reward} XP · od úrovně ${quest.required_level}`;
+      const description = document.createElement("p");
+      description.className = "answer";
+      description.textContent = quest.description;
+      const note = document.createElement("p");
+      note.className = "pending";
+      note.setAttribute("role", "status");
+      const link = document.createElement("a");
+      link.href = locationPages[quest.location_key] || "mapy.html";
+      link.textContent = "Zobrazit místo na mapě";
+      card.append(title, meta, description, link, note);
+      const allowed = evidenceFor(quest.name);
+      const min = Math.min(...allowed), max = Math.max(...allowed);
+      const form = document.createElement("form");
+      const label = document.createElement("label");
+      label.textContent = "Vypracování úkolu (10–5000 znaků)";
+      const answer = document.createElement("textarea");
+      answer.minLength = 10; answer.maxLength = 5000; answer.required = true;
+      label.append(answer);
+      const fileLabel = document.createElement("label");
+      fileLabel.textContent = allowed.length > 1
+        ? `Printy či fotografie: podle varianty ${allowed.join(" nebo ")}`
+        : `Printy či fotografie: ${max}`;
+      const fileInput = document.createElement("input");
+      fileInput.type = "file"; fileInput.multiple = true;
+      fileInput.accept = "image/jpeg,image/png,image/webp";
+      fileLabel.append(fileInput);
+      fileLabel.hidden = max === 0;
+      const submit = document.createElement("button");
+      submit.type = "submit"; submit.textContent = "Odevzdat řešení";
+      form.append(label, fileLabel, submit);
+      const pending = latest?.status === "pending";
+      if (pending) {
+        const count = latest.photos.length;
+        note.textContent = `Řešení čeká na schválení. Přiloženo ${count} obrázků.`;
+        if (max > count) {
+          const add = document.createElement("button");
+          add.type = "button"; add.textContent = "Doplnit obrázky";
+          card.append(fileLabel, add);
+          add.addEventListener("click", async () => {
+            const files = Array.from(fileInput.files);
+            if (!files.length || count + files.length > max) {
+              note.textContent = `Vyber 1 až ${max - count} obrázků.`; return;
+            }
+            add.disabled = true;
+            try { await attachEvidence(latest.id, files, note); location.reload(); }
+            catch (error) { note.textContent = "Přílohy se nepodařilo přidat: " + error.message; add.disabled = false; }
+          });
+        }
+      } else if (quest.is_active && character.level >= quest.required_level) {
+        note.textContent = latest?.status === "returned" ? "Předchozí řešení bylo vráceno. Můžeš ho opravit." : "Přijatý úkol připravený k plnění.";
+        card.append(form);
+        form.addEventListener("submit", async event => {
+          event.preventDefault();
+          const files = Array.from(fileInput.files);
+          if (!allowed.includes(files.length)) {
+            note.textContent = `Přilož ${allowed.join(" nebo ")} obrázků podle zadání.`; return;
+          }
+          if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+            note.textContent = "Každý obrázek musí být JPG, PNG nebo WebP do 5 MB."; return;
+          }
+          submit.disabled = true;
+          note.textContent = "Odevzdávám řešení...";
+          const { data: submissionId, error } = await client.rpc("submit_personal_quest", {
+            p_quest_id: quest.id, p_text: answer.value.trim()
+          });
+          if (error) { note.textContent = error.message; submit.disabled = false; return; }
+          form.hidden = true;
+          try { await attachEvidence(submissionId, files, note); location.reload(); }
+          catch (uploadError) {
+            note.textContent = "Řešení je odevzdané, ale nahrání obrázků selhalo: " + uploadError.message + ". Obnov stránku a doplň je.";
+          }
+        });
+      } else note.textContent = "Úkol již není dostupný k odevzdání.";
+      personalList.append(card);
+    }
     const { data: { user }, error: authError } = await client.auth.getUser();
     if (authError || !user) location.replace("index.html");
     else try {
       const { data: character, error: characterError } = await client.from("characters")
-        .select("id").eq("user_id", user.id).single();
+        .select("id, level").eq("user_id", user.id).single();
       if (characterError || !character) throw new Error("Postavu se nepodařilo načíst.");
-      const [{ data: assignments, error: aError }, { data: memberships, error: mError }] = await Promise.all([
+      const [{ data: assignments, error: aError }, { data: memberships, error: mError }, { data: accepted, error: acceptedError }] = await Promise.all([
         client.from("quest_assignments").select("id, quest_id").eq("character_id", character.id),
-        client.from("group_members").select("group_id").eq("character_id", character.id)
+        client.from("group_members").select("group_id").eq("character_id", character.id),
+        client.from("accepted_quests").select("quest_id, accepted_at").eq("character_id", character.id).order("accepted_at", { ascending: false })
       ]);
-      if (aError || mError) throw new Error("Odevzdané úkoly se nepodařilo načíst.");
+      if (aError || mError || acceptedError) throw new Error("Úkoly se nepodařilo načíst: " + (aError || mError || acceptedError).message);
       const groupIds = [...new Set(memberships.map(m => m.group_id))];
       const [personal, grouped, groups] = await Promise.all([
         selectMany("submissions", "id, assignment_id, text_content, status, review_comment, created_at", "assignment_id", assignments.map(a => a.id)),
         selectMany("group_submissions", "id, group_id, quest_id, answer, status, review_comment, created_at", "group_id", groupIds),
         selectMany("groups", "id, name", "id", groupIds)
       ]);
-      const questIds = [...new Set([...assignments.map(a => a.quest_id), ...grouped.map(s => s.quest_id)])];
+      const questIds = [...new Set([...assignments.map(a => a.quest_id), ...grouped.map(s => s.quest_id), ...accepted.map(a => a.quest_id)])];
       const [quests, personalPhotos, groupPhotos] = await Promise.all([
-        selectMany("quests", "id, name, xp_reward", "id", questIds),
+        selectMany("quests", "id, name, description, xp_reward, required_level, is_active, location_key, map_id", "id", questIds),
         selectMany("submission_files", "submission_id, file_url", "submission_id", personal.map(s => s.id), "uploaded_at"),
         selectMany("group_submission_files", "group_submission_id, file_url", "group_submission_id", grouped.map(s => s.id), "uploaded_at")
       ]);
@@ -184,6 +317,21 @@
       const groupFileMap = fileMap(groupPhotos, "group_submission_id");
       personal.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       grouped.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const latestByQuest = new Map();
+      for (const s of personal) {
+        const questId = assignmentById.get(s.assignment_id)?.quest_id;
+        if (questId && !latestByQuest.has(questId)) {
+          latestByQuest.set(questId, { ...s, photos: personalFileMap.get(s.id) || [] });
+        }
+      }
+      let activeCount = 0;
+      for (const entry of accepted) {
+        const quest = questById.get(entry.quest_id);
+        const latest = latestByQuest.get(entry.quest_id);
+        if (!quest || latest?.status === "approved") continue;
+        appendAcceptedCard(quest, entry.accepted_at, character, latest);
+        activeCount++;
+      }
       for (const s of personal) {
         const quest = questById.get(assignmentById.get(s.assignment_id)?.quest_id);
         appendCard(personalList, {
@@ -201,9 +349,9 @@
           photos: groupFileMap.get(s.id) || []
         });
       }
-      if (!personal.length) personalList.textContent = "Zatím nemáš žádné odevzdané osobní úkoly.";
+      if (!personal.length && !activeCount) personalList.textContent = "Zatím nemáš žádné přijaté ani odevzdané osobní úkoly.";
       if (!grouped.length) groupList.textContent = "Tvoje družina zatím nemá žádné odevzdané úkoly.";
-      status.textContent = `Osobní řešení: ${personal.length} · Družinová řešení: ${grouped.length}`;
+      status.textContent = `Přijaté úkoly k plnění: ${activeCount} · Osobní řešení: ${personal.length} · Družinová řešení: ${grouped.length}`;
     } catch (error) {
       status.textContent = "Historii úkolů se nepodařilo načíst: " + error.message;
     }
