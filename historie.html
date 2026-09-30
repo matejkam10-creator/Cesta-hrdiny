@@ -185,13 +185,18 @@
         "Najdi místo pro arénu": [3],
         "Pět vítězství v soubojovém klubu": [4, 5],
         "Příběh gladiátorských soubojů": [0],
-        "Pět nových kouzel": [3, 5]
+        "Pět nových kouzel": [3, 5],
+        "Malý cestovatel": [3],
+        "Hodina tělocviku": [2],
+        "Starání se o mazlíčky Krále zvěře": [5],
+        "To už jsme smečka?": [5]
       };
       return special[name] || [1];
     }
     const locationPages = {
       kuchyne: "kuchyne.html", knihovna: "knihovna.html", herna: "herna.html",
-      arena: "arena.html", bazina: "bazina.html", louka: "louka.html"
+      arena: "arena.html", bazina: "bazina.html", louka: "louka.html",
+      kral_zvere: "kral-zvere.html"
     };
     async function attachEvidence(submissionId, files, note) {
       for (let index = 0; index < files.length; index++) {
