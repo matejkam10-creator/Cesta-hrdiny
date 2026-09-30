@@ -195,7 +195,7 @@
     }
     const locationPages = {
       kuchyne: "kuchyne.html", knihovna: "knihovna.html", herna: "herna.html",
-      arena: "arena.html", bazina: "bazina.html", louka: "louka.html",
+      arena: "arena.html", bazina: "bazina.html", louka: "louka.html", sklad: "sklad.html",
       kral_zvere: "kral-zvere.html"
     };
     async function attachEvidence(submissionId, files, note) {
@@ -231,7 +231,7 @@
       const card = document.createElement("details");
       card.className = "card";
       const title = document.createElement("summary");
-      title.textContent = quest.name + (quest.location_key === "louka"
+      title.textContent = quest.name + (["louka", "sklad"].includes(quest.location_key)
         ? " · " + ({ easy: "lehký", medium: "střední", hard: "těžký" })[quest.difficulty] : "");
       const meta = document.createElement("p");
       meta.className = "meta";
@@ -386,7 +386,7 @@
         const target = s.status === "approved" ? personalSections.approved
           : s.status === "returned" ? personalSections.returned : personalSections.accepted;
         appendCard(target, {
-          title: quest ? quest.name + (quest.location_key === "louka"
+          title: quest ? quest.name + (["louka", "sklad"].includes(quest.location_key)
             ? " · " + ({ easy: "lehký", medium: "střední", hard: "těžký" })[quest.difficulty] : "") : "Osobní úkol",
           xp_reward: quest?.xp_reward ?? 0,
           created_at: s.created_at, status: s.status, answer: s.text_content,
