@@ -56,7 +56,7 @@
     const badge = document.createElement('span');
     badge.className = 'level-badge';
     badge.dataset.rank = String(band%10);
-    badge.textContent = `Úroveň ${level} · ${range}`;
+    badge.textContent = `Úroveň ${level}`;
     badge.setAttribute('aria-label',`Úroveň ${level}, pásmo ${range}`);
     return badge;
   }
