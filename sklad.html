@@ -396,6 +396,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             const variants = groups.get(name) || [];
             if (!variants.length || variants.every(quest => approvedQuestIds.has(quest.id))) return;
             const marker = element("button", "quest-marker", "!");
+            if (name === "Šťáva z plodu Ďáblova osidla") marker.classList.add("medium");
             marker.type = "button";
             marker.style.left = [23, 50, 77][index % 3] + "%";
             marker.style.top = [20, 50, 80][Math.floor(index / 3)] + "%";
