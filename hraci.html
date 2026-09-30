@@ -27,6 +27,22 @@
     article h2 { margin:0 0 8px; color:#efd49b; font-size:1.25em; }
     article p { margin:8px 0; }
     .muted { color:#cdbd9e; }
+    .player-link { display:flex; align-items:center; gap:14px; color:inherit; text-decoration:none; }
+    .player-link:hover h2, .player-link:focus-visible h2 { text-decoration:underline; }
+    .badge-row { margin:12px 0 0; }
+    .level-badge { --accent:#a98248; --shade:#3b2b21; display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--accent); border-radius:999px; background:linear-gradient(125deg,var(--shade),#18131c); color:#fff4d9; box-shadow:inset 0 0 0 1px #fff2,0 3px 10px #0007; font:bold .82em Georgia,serif; letter-spacing:.02em; white-space:nowrap; }
+    .level-badge::before { content:'✦'; color:var(--accent); font-size:1.2em; }
+    .level-badge[data-rank="0"] { --accent:#a98248; --shade:#3b2b21; }
+    .level-badge[data-rank="1"] { --accent:#abb7c4; --shade:#29333e; }
+    .level-badge[data-rank="2"] { --accent:#e4bd61; --shade:#49361f; }
+    .level-badge[data-rank="3"] { --accent:#70b4b4; --shade:#163d44; }
+    .level-badge[data-rank="4"] { --accent:#bb8bdf; --shade:#372347; }
+    .level-badge[data-rank="5"] { --accent:#ee9b6d; --shade:#4c292b; }
+    .level-badge[data-rank="6"] { --accent:#9bca79; --shade:#31442c; }
+    .level-badge[data-rank="7"] { --accent:#e6aab9; --shade:#472a3b; }
+    .level-badge[data-rank="8"] { --accent:#b7c8ed; --shade:#303756; }
+    .level-badge[data-rank="9"] { --accent:#f3cf88; --shade:#58402d; }
+
   </style>
 </head>
 <body>
@@ -37,7 +53,7 @@
   </div></header>
   <main>
     <h1>Hráči</h1>
-    <p class="intro">Postavy, které potkáš v Cestě hrdiny. Zobrazují se pouze herní jména, avatar, titul a úroveň.</p>
+    <p class="intro">Postavy, které potkáš v Cestě hrdiny. Klepni na postavu a prohlédni si její profil.</p>
     <p id="status" role="status">Načítám postavy...</p>
     <div id="players"></div>
   </main>
@@ -80,13 +96,29 @@
         picture.addEventListener('error', () => picture.replaceWith(fallback()), { once: true });
         return picture;
       }
+
+      function levelBadge(value) {
+        const level = Math.max(1, Math.floor(Number(value) || 1));
+        const band = level < 10 ? 0 : Math.floor(level / 10);
+        const range = band === 0 ? '1–9' : `${band * 10}–${band * 10 + 9}`;
+        const badge = document.createElement('span');
+        badge.className = 'level-badge';
+        badge.dataset.rank = String(band % 10);
+        badge.textContent = `Úroveň ${level} · ${range}`;
+        badge.setAttribute('aria-label', `Úroveň ${level}, pásmo ${range}`);
+        return badge;
+      }
       for (const character of data) {
         const card = document.createElement('article');
         const heading = document.createElement('div');
         heading.className = 'player-heading';
         const name = document.createElement('h2');
         name.textContent = character.nickname || character.name || 'Bezejmenná postava';
-        heading.append(avatarFor(character.avatar_url), name);
+        const link = document.createElement('a');
+        link.className = 'player-link';
+        link.href = 'profil.html?id=' + encodeURIComponent(character.id);
+        link.append(avatarFor(character.avatar_url), name);
+        heading.append(link);
         card.append(heading);
         if (character.nickname && character.name && character.nickname !== character.name) {
           const gameName = document.createElement('p');
@@ -95,8 +127,12 @@
           card.append(gameName);
         }
         const info = document.createElement('p');
-        info.textContent = `${character.title || 'Novic'} · Úroveň ${character.level ?? 1}`;
+        info.textContent = character.title || 'Bez titulu';
         card.append(info);
+        const rank = document.createElement('p');
+        rank.className = 'badge-row';
+        rank.append(levelBadge(character.level));
+        card.append(rank);
         list.append(card);
       }
     })();

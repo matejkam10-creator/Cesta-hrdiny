@@ -30,6 +30,19 @@
     #logout { background: #794646; }
     #stavProfilu, #stavAvatara { min-height: 24px; }
     #popis { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .level-badge { --accent:#a98248; --shade:#3b2b21; display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--accent); border-radius:999px; background:linear-gradient(125deg,var(--shade),#18131c); color:#fff4d9; box-shadow:inset 0 0 0 1px #fff2,0 3px 10px #0007; font:bold .82em Georgia,serif; letter-spacing:.02em; white-space:nowrap; }
+    .level-badge::before { content:'✦'; color:var(--accent); font-size:1.2em; }
+    .level-badge[data-rank="0"] { --accent:#a98248; --shade:#3b2b21; }
+    .level-badge[data-rank="1"] { --accent:#abb7c4; --shade:#29333e; }
+    .level-badge[data-rank="2"] { --accent:#e4bd61; --shade:#49361f; }
+    .level-badge[data-rank="3"] { --accent:#70b4b4; --shade:#163d44; }
+    .level-badge[data-rank="4"] { --accent:#bb8bdf; --shade:#372347; }
+    .level-badge[data-rank="5"] { --accent:#ee9b6d; --shade:#4c292b; }
+    .level-badge[data-rank="6"] { --accent:#9bca79; --shade:#31442c; }
+    .level-badge[data-rank="7"] { --accent:#e6aab9; --shade:#472a3b; }
+    .level-badge[data-rank="8"] { --accent:#b7c8ed; --shade:#303756; }
+    .level-badge[data-rank="9"] { --accent:#f3cf88; --shade:#58402d; }
+
 
     /* Stejná hlavička a nabídka jako na mapách. */
     [hidden] { display: none !important; }
@@ -146,6 +159,18 @@
     window.location.replace("mapy.html");
   });
 } else {
+
+      function levelBadge(value) {
+        const level = Math.max(1, Math.floor(Number(value) || 1));
+        const band = level < 10 ? 0 : Math.floor(level / 10);
+        const range = band === 0 ? '1–9' : `${band * 10}–${band * 10 + 9}`;
+        const badge = document.createElement('span');
+        badge.className = 'level-badge';
+        badge.dataset.rank = String(band % 10);
+        badge.textContent = `Úroveň ${level} · ${range}`;
+        badge.setAttribute('aria-label', `Úroveň ${level}, pásmo ${range}`);
+        return badge;
+      }
       const karta = document.getElementById("postava");
       karta.replaceChildren();
       const jmeno = document.createElement("h2");
@@ -160,7 +185,7 @@
       skutecneJmeno.textContent = "Postava: " + postava.name;
       titul.textContent = "Titul: " + (postava.title || "Bez titulu");
       datum.textContent = "Postava vytvořena: " + new Date(postava.created_at).toLocaleDateString("cs-CZ");
-      uroven.textContent = "Úroveň: " + postava.level;
+      uroven.append(levelBadge(postava.level));
       xp.textContent = "XP: " + postava.total_xp;
       popis.textContent = postava.description || "Zatím bez popisu.";
       const obrazek = document.createElement("img");

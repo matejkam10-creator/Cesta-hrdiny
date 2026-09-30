@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profil hráče | Cesta hrdiny</title>
+  <style>
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; min-height:100vh; color:#f4e4c4; font:18px Georgia,serif; background:#0d0c11 radial-gradient(circle at 12% 8%,#382b3b,transparent 32rem); }
+    a { color:#efd49b; }
+    header { padding:18px; border-bottom:1px solid #5d4d38; background:#17131b; }
+    header a { text-decoration:none; font-size:clamp(24px,5vw,36px); font-weight:bold; }
+    main { width:min(100% - 32px,760px); margin:28px auto 60px; }
+    .card { margin:22px 0; padding:clamp(22px,5vw,36px); border:1px solid #89704d; border-radius:20px; background:#1b1720; box-shadow:0 15px 38px #0006; }
+    .heading { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+    .avatar { display:grid; place-items:center; width:120px; height:120px; flex:none; border:3px solid #e4c48a; border-radius:50%; background:#332a39; object-fit:cover; font-size:54px; }
+    h1,h2 { color:#efd49b; }
+    h1 { margin:0 0 10px; overflow-wrap:anywhere; }
+    .muted { color:#cdbd9e; }
+    .description { line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .level-badge { --accent:#a98248; --shade:#3b2b21; display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--accent); border-radius:999px; background:linear-gradient(125deg,var(--shade),#18131c); color:#fff4d9; box-shadow:inset 0 0 0 1px #fff2,0 3px 10px #0007; font:bold .82em Georgia,serif; letter-spacing:.02em; white-space:nowrap; }
+    .level-badge::before { content:'✦'; color:var(--accent); font-size:1.2em; }
+    .level-badge[data-rank="0"] { --accent:#a98248; --shade:#3b2b21; }
+    .level-badge[data-rank="1"] { --accent:#abb7c4; --shade:#29333e; }
+    .level-badge[data-rank="2"] { --accent:#e4bd61; --shade:#49361f; }
+    .level-badge[data-rank="3"] { --accent:#70b4b4; --shade:#163d44; }
+    .level-badge[data-rank="4"] { --accent:#bb8bdf; --shade:#372347; }
+    .level-badge[data-rank="5"] { --accent:#ee9b6d; --shade:#4c292b; }
+    .level-badge[data-rank="6"] { --accent:#9bca79; --shade:#31442c; }
+    .level-badge[data-rank="7"] { --accent:#e6aab9; --shade:#472a3b; }
+    .level-badge[data-rank="8"] { --accent:#b7c8ed; --shade:#303756; }
+    .level-badge[data-rank="9"] { --accent:#f3cf88; --shade:#58402d; }
+  </style>
+</head>
+<body>
+<header><a href="mapy.html">⚔️ Cesta hrdiny</a></header>
+<main>
+  <a href="hraci.html">← Zpět na seznam hráčů</a>
+  <p id="status" role="status">Načítám profil...</p>
+  <article id="profile" class="card" hidden>
+    <div class="heading"><div id="avatar"></div><div><h1 id="name"></h1><p id="gameName" class="muted" hidden></p><p id="title" class="muted"></p><div id="level"></div></div></div>
+    <h2>O postavě</h2><p id="description" class="description"></p>
+    <section aria-labelledby="achievementsTitle"><h2 id="achievementsTitle">Achievementy</h2><p class="muted">Achievementy sem přidáme později.</p></section>
+  </article>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const client = supabase.createClient('https://qgnallfqanixepfvrzjn.supabase.co','sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi');
+  const status = document.getElementById('status');
+  const avatarBase = 'https://qgnallfqanixepfvrzjn.supabase.co/storage/v1/object/public/avatars/';
+  function levelBadge(value) {
+    const level = Math.max(1,Math.floor(Number(value)||1));
+    const band = level < 10 ? 0 : Math.floor(level/10);
+    const range = band === 0 ? '1–9' : `${band*10}–${band*10+9}`;
+    const badge = document.createElement('span');
+    badge.className = 'level-badge';
+    badge.dataset.rank = String(band%10);
+    badge.textContent = `Úroveň ${level} · ${range}`;
+    badge.setAttribute('aria-label',`Úroveň ${level}, pásmo ${range}`);
+    return badge;
+  }
+  function fallbackAvatar() {
+    const icon = document.createElement('span');
+    icon.className = 'avatar'; icon.textContent = '👤'; icon.setAttribute('aria-hidden','true');
+    return icon;
+  }
+  (async () => {
+    const {data:{user},error:authError} = await client.auth.getUser();
+    if (authError || !user) { location.replace('index.html'); return; }
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id)) { status.textContent='Neplatný odkaz na profil.'; return; }
+    const {data,error} = await client.rpc('list_player_characters');
+    if (error || !Array.isArray(data)) { status.textContent='Profil se nepodařilo načíst. Zkontroluj nastavení databáze.'; return; }
+    const character = data.find(item => item.id === id);
+    if (!character) { status.textContent='Postava nebyla nalezena.'; return; }
+    const avatar = document.getElementById('avatar');
+    if (typeof character.avatar_url === 'string' && character.avatar_url.startsWith(avatarBase)) {
+      const picture = document.createElement('img'); picture.className='avatar';
+      picture.src=character.avatar_url; picture.alt='Avatar postavy';
+      picture.addEventListener('error',()=>picture.replaceWith(fallbackAvatar()),{once:true});
+      avatar.append(picture);
+    } else avatar.append(fallbackAvatar());
+    const displayName = character.nickname || character.name || 'Bezejmenná postava';
+    document.title = displayName + ' | Cesta hrdiny';
+    document.getElementById('name').textContent=displayName;
+    if (character.nickname && character.name && character.nickname !== character.name) {
+      const gameName=document.getElementById('gameName'); gameName.textContent='Postava: '+character.name; gameName.hidden=false;
+    }
+    document.getElementById('title').textContent=character.title || 'Bez titulu';
+    document.getElementById('level').append(levelBadge(character.level));
+    document.getElementById('description').textContent=character.description || 'Postava zatím nemá popis.';
+    status.hidden=true;
+    document.getElementById('profile').hidden=false;
+  })();
+</script>
+<script src="navigace.js" defer></script>
+</body>
+</html>
