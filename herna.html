@@ -26,6 +26,7 @@
     .image-map { position: relative; }
     .quest-marker { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: white; font: bold 12px Georgia, serif; text-shadow: 0 1px 2px #000; cursor: pointer; }
     .quest-marker::before { content: ''; position: absolute; z-index: -1; inset: 14px; border: 1px solid #fff1ca; border-radius: 50%; background: #287348; box-shadow: 0 2px 5px #000a; }
+    .quest-marker.medium::before { background: #ab6e25; }
     .quest-marker:hover::before { filter: brightness(1.25); }
     .quest-marker:focus-visible { outline: 2px solid white; }
     .quest-hint { margin: 0; padding: 10px 20px; font-size: .88em; }
@@ -171,22 +172,24 @@ window.createAcceptQuestButton = function (client, quest, character) {
     }
 
     function createQuestCard(quest, user, character) {
+      const minProofs = 1;
+      const maxProofs = 5;
       const card = element("article", "quest-card");
       const title = element("h4", "", quest.name);
       const description = element("p", "", quest.description);
-      const meta = element("p", "quest-meta", `Lehký úkol · ${quest.xp_reward} XP · od úrovně ${quest.required_level}`);
+      const meta = element("p", "quest-meta", `${{easy: "Lehký", medium: "Střední", hard: "Těžký"}[quest.difficulty] || "Osobní"} úkol · ${quest.xp_reward} XP · od úrovně ${quest.required_level}`);
       const state = element("p", "quest-state", "Načítám tvůj postup...");
       state.setAttribute("role", "status");
       const form = element("form");
       form.hidden = true;
-      const answerLabel = element("label", "", "Jména pěti soupeřů a stručný popis výher (10–5000 znaků)");
+      const answerLabel = element("label", "", ["Kalkulátor", "Matematikář"].includes(quest.name) ? "Popis vyřešených čarok (10–5000 znaků)" : "Jména pěti soupeřů a stručný popis výher (10–5000 znaků)");
       const answer = element("textarea");
       answer.id = `answer-${quest.id}`;
       answerLabel.htmlFor = answer.id;
       answer.minLength = 10;
       answer.maxLength = 5000;
       answer.required = true;
-      const fileLabel = element("label", "", "Pět snímků výher (JPG, PNG nebo WebP; každý do 5 MB)");
+      const fileLabel = element("label", "", "Jeden až pět printů splnění (JPG, PNG nebo WebP; každý do 5 MB)");
       const fileInput = element("input");
       fileInput.type = "file";
       fileInput.id = `proof-${quest.id}`;
@@ -237,13 +240,13 @@ window.createAcceptQuestButton = function (client, quest, character) {
           links.append(link);
         });
         uploaded.hidden = false;
-        retryLabel.hidden = retryInput.hidden = retryButton.hidden = !canAddPhotos || photoCount >= 5;
+        retryLabel.hidden = retryInput.hidden = retryButton.hidden = !canAddPhotos || photoCount >= maxProofs;
       }
 
       async function uploadPhotos(files) {
         if (!submissionId || !files.length) return;
-        if (files.length > 5 - photoCount) {
-          state.textContent = `Můžeš přidat ještě ${5 - photoCount} snímků.`;
+        if (files.length > maxProofs - photoCount) {
+          state.textContent = `Můžeš přidat ještě ${maxProofs - photoCount} snímků.`;
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
@@ -267,7 +270,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             if (attachError) throw attachError;
             added++;
           }
-          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " z 5 snímků.";
+          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " snímků (povoleno 1–5).";
         } catch (error) {
           state.textContent = `Přiloženo ${added} z vybraných snímků. Chyba: ${error.message}. Chybějící snímky můžeš doplnit níže.`;
         } finally {
@@ -290,8 +293,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
           state.textContent = "Popis musí mít 10 až 5000 znaků.";
           return;
         }
-        if (files.length !== 5) {
-          state.textContent = "Vyber přesně pět snímků: jeden z každé výhry.";
+        if (files.length < minProofs || files.length > maxProofs) {
+          state.textContent = "Přilož jeden až pět printů.";
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
@@ -341,7 +344,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
           submittedAnswer.hidden = !submittedAnswer.textContent;
           uploaded.hidden = false;
           await loadPhotos();
-          if (!approved && photoCount < 5) state.textContent = `Řešení čeká na schválení. Doplň ${5 - photoCount} snímků.`;
+          if (!approved && photoCount < minProofs) state.textContent = "Řešení čeká na schválení. Doplň alespoň jeden print.";
         } else {
           state.textContent = assignment ? "Předchozí řešení bylo vráceno. Můžeš ho opravit a zkusit znovu." : "Připraveno k odevzdání.";
           form.hidden = false;
@@ -377,14 +380,22 @@ window.createAcceptQuestButton = function (client, quest, character) {
         else {
           loading.textContent = quests.every(quest => approvedQuestIds.has(quest.id))
             ? "Všechny úkoly v herně máš splněné. Najdeš je v záložce Moje úkoly."
-            : "Klepni na zelené ! v obrázku a otevřeš úkol.";
+            : "Klepni na barevné ! v obrázku a otevřeš úkol.";
           const positions = [[27, 28], [43, 51], [89, 38]];
           quests.forEach((quest, index) => {
             if (approvedQuestIds.has(quest.id)) return;
             const marker = element("button", "quest-marker", "!");
+            if (quest.difficulty === "medium") marker.classList.add("medium");
             marker.type = "button";
-            marker.style.left = positions[index % positions.length][0] + "%";
-            marker.style.top = positions[index % positions.length][1] + "%";
+            const [x, y] = ({
+              "Pět výher v Tchoříčkách": [27, 28],
+              "Pět výher v Řachavém Petrovi": [43, 51],
+              "Pět výher v Maškvorkách": [89, 38],
+              "Kalkulátor": [18, 72],
+              "Matematikář": [72, 76]
+            })[quest.name] || positions[index % positions.length];
+            marker.style.left = x + "%";
+            marker.style.top = y + "%";
             marker.title = quest.name;
             marker.setAttribute("aria-label", "Otevřít úkol: " + quest.name);
             marker.addEventListener("click", () => {

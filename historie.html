@@ -178,6 +178,11 @@
     function evidenceFor(name) {
       const special = {
         "Tři ilustrace pro Felisku": [4],
+        "Pět výher v Tchoříčkách": [1, 2, 3, 4, 5],
+        "Pět výher v Řachavém Petrovi": [1, 2, 3, 4, 5],
+        "Pět výher v Maškvorkách": [1, 2, 3, 4, 5],
+        "Kalkulátor": [1, 2, 3, 4, 5],
+        "Matematikář": [1, 2, 3, 4, 5],
         "Ďáblova jáma: jeden týden": [1],
         "Ďáblova jáma: tři týdny": [3],
         "Ďáblova jáma: pět týdnů": [5],
@@ -270,7 +275,7 @@
       label.append(answer);
       const fileLabel = document.createElement("label");
       fileLabel.textContent = allowed.length > 1
-        ? `Printy či fotografie: podle varianty ${allowed.join(" nebo ")}`
+        ? (min === 1 && max === 5 ? "Printy či fotografie: 1–5" : `Printy či fotografie: podle varianty ${allowed.join(" nebo ")}`)
         : `Printy či fotografie: ${max}`;
       const fileInput = document.createElement("input");
       fileInput.type = "file"; fileInput.multiple = true;
