@@ -56,6 +56,14 @@
     .site-header #mainMenu a { display: block; padding: 12px 14px; border-bottom: 1px solid #564535; text-decoration: none; }
     .site-header #mainMenu a:last-child { border-bottom: 0; }
     .site-header #mainMenu a:hover, .site-header #mainMenu a:focus-visible { background: #3a2c36; text-decoration: underline; }
+
+    .achievements-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); gap:14px; padding:0; margin:18px 0 0; list-style:none; }
+    .achievement { display:flex; gap:12px; align-items:center; min-width:0; padding:12px; border:1px solid #796244; border-radius:14px; background:#251d25; }
+    .achievement-art { display:block; flex:none; width:84px; height:84px; border-radius:50%; background-color:#211a20; background-repeat:no-repeat; background-size:400% 300%; background-position:var(--badge-x) var(--badge-y); box-shadow:0 3px 12px #0009; }
+    .achievement-art.level { background-image:url('odznaky-urovne.png'); background-size:400% 266.667%; }
+    .achievement-art.journey { background-image:url('odznaky-ukoly-druzina.png'); }
+    .achievement h3 { margin:0 0 5px; color:#efd49b; font-size:1em; overflow-wrap:anywhere; }
+    .achievement p { margin:0; color:#cdbd9e; font-size:.82em; line-height:1.4; }
   </style>
 </head>
 
@@ -69,6 +77,7 @@
 <main>
   <h2>Moje postava</h2>
   <section id="postava" class="karta">Načítám tvoji postavu...</section>
+  <section id="achievementsPanel" class="karta" hidden><h2>Achievementy</h2><div id="achievements" role="status">Načítám získané odznaky...</div></section>
   <form id="createCharacter" class="karta" hidden>
     <h3>Vytvořit postavu</h3>
     <p>Vyber si herní jméno. Nepoužívej své občanské jméno ani jiné soukromé údaje.</p>
@@ -130,6 +139,38 @@
     const SUPABASE_URL = "https://qgnallfqanixepfvrzjn.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function renderAchievements(client, characterId, container) {
+    const {data, error} = await client.rpc('earned_character_achievements', {p_character_id: characterId});
+    if (error || !Array.isArray(data)) {
+      container.textContent = 'Odznaky se nepodařilo načíst.';
+      return;
+    }
+    if (!data.length) {
+      container.textContent = 'Zatím žádné získané odznaky.';
+      return;
+    }
+    const list = document.createElement('ul');
+    list.className = 'achievements-list';
+    for (const badge of data) {
+      if (!['levels','journey'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
+      const columns = 4;
+      const col = badge.slot % columns, row = Math.floor(badge.slot / columns);
+      if (badge.sheet === 'levels' ? row > 1 : row > 2) continue;
+      const item = document.createElement('li'); item.className = 'achievement';
+      const art = document.createElement('span');
+      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : 'journey');
+      art.setAttribute('aria-hidden','true');
+      art.style.setProperty('--badge-x',col * 100 / 3 + '%');
+      art.style.setProperty('--badge-y',badge.sheet === 'levels' ? (row ? '85%' : '15%') : row * 50 + '%');
+      const copy = document.createElement('div');
+      const title = document.createElement('h3'); title.textContent = badge.title;
+      const detail = document.createElement('p'); detail.textContent = badge.description;
+      copy.append(title,detail); item.append(art,copy); list.append(item);
+    }
+    container.replaceChildren(list);
+  }
+
     const { data: { user } } = await client.auth.getUser();
     if (!user) {
       window.location.replace("index.html");
@@ -196,6 +237,8 @@
         karta.append(obrazek);
       }
       karta.append(jmeno, skutecneJmeno, titul, datum, uroven, xp, popis);
+      document.getElementById("achievementsPanel").hidden = false;
+      renderAchievements(client, postava.id, document.getElementById("achievements"));
       const actions = document.getElementById("profileActions");
       const editPanel = document.getElementById("editPanel");
       const avatarPanel = document.getElementById("avatarPanel");
