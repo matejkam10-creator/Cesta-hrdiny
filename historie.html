@@ -189,14 +189,15 @@
         "Malý cestovatel": [3],
         "Hodina tělocviku": [2],
         "Starání se o mazlíčky Krále zvěře": [5],
-        "To už jsme smečka?": [5]
+        "To už jsme smečka?": [5],
+        "Trénování je moje vášeň": [0, 4]
       };
       return special[name] || [1];
     }
     const locationPages = {
       kuchyne: "kuchyne.html", knihovna: "knihovna.html", herna: "herna.html",
       arena: "arena.html", bazina: "bazina.html", louka: "louka.html", sklad: "sklad.html", stanek: "stanek.html",
-      kral_zvere: "kral-zvere.html"
+      kral_zvere: "kral-zvere.html", placek: "placek.html"
     };
     async function attachEvidence(submissionId, files, note) {
       for (let index = 0; index < files.length; index++) {
