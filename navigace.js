@@ -2,6 +2,10 @@
 (() => {
   const menu = document.getElementById('mainMenu');
   if (!menu) return;
+    const story = document.createElement('a');
+  story.href = 'pribeh.html';
+  story.textContent = 'Příběh';
+  menu.insertBefore(story, document.getElementById('adminLink'));
   const players = document.createElement('a');
   players.href = 'hraci.html';
   players.textContent = 'Hráči';
