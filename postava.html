@@ -183,6 +183,9 @@
     if (error) {
   document.getElementById("postava").textContent = "Postavu se nepodařilo načíst.";
 } else if (!postava) {
+  if (!user.user_metadata?.intro_seen) {
+    window.location.replace("pribeh.html?uvod=1");
+  } else {
   document.getElementById("postava").textContent = "Vítej ve hře. Nejprve si vytvoř postavu.";
   const createForm = document.getElementById("createCharacter");
   createForm.hidden = false;
@@ -199,6 +202,7 @@
     if (createError) { status.textContent = "Postavu se nepodařilo vytvořit: " + createError.message; return; }
     window.location.replace("mapy.html");
   });
+  }
 } else {
 
       function levelBadge(value) {

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Příběh | Cesta hrdiny</title>
+  <style>
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; min-height:100vh; color:#f4e4c4; background:#0d0c11 radial-gradient(circle at 50% 0,#362a39,transparent 45rem); font:18px Georgia,serif; }
+    a { color:#efd49b; }
+    header { position:relative; z-index:3; padding:18px; border-bottom:1px solid #5d4d38; background:#17131b; }
+    .header-inner { max-width:1200px; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    header h1 { margin:0; color:#efd49b; font-size:clamp(24px,5vw,36px); }
+    header h1 a { color:inherit; text-decoration:none; }
+    #menuToggle { display:grid; place-items:center; width:48px; height:48px; border:1px solid #b69360; border-radius:10px; background:#302634; color:#f1d398; font:29px Georgia,serif; cursor:pointer; }
+    #mainMenu { position:absolute; top:100%; right:18px; width:min(340px,calc(100vw - 36px)); padding:8px; border:1px solid #89704d; border-radius:0 0 14px 14px; background:#211b25; box-shadow:0 12px 28px #000a; }
+    #mainMenu a { display:block; padding:12px 14px; border-bottom:1px solid #564535; text-decoration:none; }
+    #mainMenu a:hover, #mainMenu button:hover, #mainMenu a:focus-visible, #mainMenu button:focus-visible { background:#3a2c36 !important; }
+    main { width:min(100% - 28px,780px); margin:32px auto 64px; }
+    article { padding:clamp(22px,6vw,52px); border:1px solid #786044; border-radius:18px; background:#1b1720; box-shadow:0 20px 55px #0006; }
+    .chapter { margin:0 0 8px; color:#c7a670; font-size:.85rem; text-transform:uppercase; letter-spacing:.18em; }
+    article h2 { margin:0 0 32px; color:#efd49b; font-size:clamp(29px,7vw,44px); line-height:1.15; }
+    article p { margin:0 0 1.25em; line-height:1.8; }
+    article p:last-child { margin-bottom:0; }
+    .actions { display:flex; flex-wrap:wrap; gap:12px; margin:28px 0; align-items:center; }
+    .actions button, .actions a { display:inline-block; padding:13px 20px; border:1px solid #c5a46c; border-radius:9px; background:#a98248; color:#fff; font:inherit; text-decoration:none; cursor:pointer; }
+    .actions button:disabled { opacity:.6; cursor:wait; }
+    #status { color:#f1d398; }
+  </style>
+</head>
+<body>
+  <header id="siteHeader"><div class="header-inner">
+    <h1><a href="mapy.html">⚔️ Cesta hrdiny</a></h1>
+    <button id="menuToggle" type="button" aria-label="Otevřít nabídku" aria-controls="mainMenu" aria-expanded="false">☰</button>
+    <nav id="mainMenu" aria-label="Hlavní nabídka" hidden><a href="mapy.html">Mapy</a><a href="postava.html">Moje postava</a><a href="urovne.html">Úrovně</a><a href="historie.html">Moje úkoly</a><a href="chat.html">Společný chat</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
+  </div></header>
+  <main>
+    <article>
+      <div class="chapter">Kapitola I · Úvod</div>
+      <h2>Mohl to být krásný školní rok.</h2>
+      <p>Jasně... Celé prázdniny to bylo jen samé stěžování na to, že zase budeš muset dělat hromadu úkolů. Ale když se na to podíváš zpětně... nebyly by úkoly lepší než to, co tě potkalo?</p>
+      <p>Propadnutí do jiného světa přišlo jako blesk z čistého nebe.</p>
+      <p>Možná sis mohl všimnout několika náznaků. Něčeho podivného, co se dělo kolem tebe. Ale upřímně – napadlo by tě vůbec, že se může stát něco takového?</p>
+      <p>Mě určitě ne.</p>
+      <p>Probouzíš se vedle hradeb neznámého města. Zmatenost ti prostupuje celým tělem, ale není čas otálet. Chytíš se za bolavou hlavu. Uvnitř ní tepe ostrá bolest, jako by ti někdo do lebky zarazil střep.</p>
+      <p>Postavíš se. Zavrávoráš a málem si sedneš zpátky na zadek, ale musíš jít. Musíš zjistit, co se stalo.</p>
+      <p>První, co tě udeří – skoro doslova – do nosu, je smrad. Je všude. Zažraný do ulic, domů i samotných hradeb. Všude kolem sebe vidíš chudobu a bídu. Špinavé uličky, rozpadající se domy a lidi, kteří vypadají, jako by už dávno zapomněli, jaké to je žít bez strachu.</p>
+      <p>Zvedne se ti žaludek a na okamžik máš pocit, že jídlo z Velké síně dlouho v útrobách tvého žaludku nevydrží. Nakonec ti ale nezbývá nic jiného, než polknout, opatrně se nadechnout a pokračovat dál.</p>
+      <p>Až na náměstí tě někdo zastaví... Ruka ti sevře rameno a ty leknutím málem vyskočíš z kůže. Otočíš se.</p>
+      <p>Před tebou stojí stará žena, vyhublá téměř na kost. Propadlé tváře, zašedlá kůže a oči, které jako by viděly mnohem víc, než by měly. Promluví suchým, chraplavým hlasem, jako by jí v ústech chyběly sliny.</p>
+      <p>„Další propadlý? Tak stejný... a přitom tak odlišný.“</p>
+      <p>Když se ti podaří zahnat první nával strachu, napadne tě jediná otázka.</p>
+      <p>Co se vlastně stalo?</p>
+      <p>Vyhrkneš ji dřív, než si vůbec stihneš utřídit myšlenky.</p>
+      <p>„Zlý černokněžník posílá do našeho světa různé hrdiny ze světů nám neznámých,“ odpoví žena. Zakašle, jako by právě dokouřila celý doutník, a pokračuje: „Všichni se musí vykoupit sběrem zkušenostních bodů. Čím silnější budeš, tím větší máš šanci dostat se odsud.“</p>
+      <p>Na okamžik se odmlčí.</p>
+      <p>„Ale opatrný buď. Nikdy jsem žádného hrdinu odejít neviděla.“</p>
+      <p>Rozhlédne se kolem sebe a hlas ztiší do chraplavého šepotu.</p>
+      <p>„Království je prohnilé. Ale nebylo tomu tak vždy. Jen málokdo z nás si ještě vzpomíná na dobu před příchodem nového krále. Tehdy bývala tahle země nádherná.“</p>
+      <p>Její oči na okamžik sklouznou k vysokým hradbám a tiše pokračuje.</p>
+      <p>„Teď trpíme. Dobře se mají jen ti, kteří slouží království. A přesto... nikdo nikdy neviděl vládce, který sedí na trůnu.“</p>
+      <p>To, co říká, přeci nemůže být pravda. Nemůže. Jenže něco hluboko uvnitř ti našeptává přesný opak. Že tohle není sen. Že tohle se skutečně děje.</p>
+      <p>Žena se k tobě náhle nakloní.</p>
+      <p>„Nemáš čas otálet. Běž! Zkušenosti můžeš získat všude. Jednou možná dospěješ do bodu, kdy budeš připravený i na mé úkoly.“</p>
+      <p>Prohlédne si tě od hlavy až k patě.</p>
+      <p>„Nyní tě ale nepotřebuji.“</p>
+      <p>Jen mrkneš a stará žena je pryč. Žádné kroky. Žádný pohyb. Prostě zmizela. Zůstáváš stát uprostřed náměstí cizího města a poprvé ti dochází, že možná opravdu neexistuje snadná cesta zpátky.</p>
+      <p>Nezbývá tedy nic jiného...</p>
+      <p>Vydáváš se hlouběji do ulic. A právě tam začíná tvé prohnilé dobrodružství.</p>
+    </article>
+    <div class="actions">
+      <button id="continue" type="button" hidden>Pokračovat k vytvoření postavy</button>
+      <a id="back" href="mapy.html" hidden>Zpět do hry</a>
+      <span id="status" role="status"></span>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const client = supabase.createClient('https://qgnallfqanixepfvrzjn.supabase.co', 'sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi');
+    const menu = document.getElementById('mainMenu');
+    const toggle = document.getElementById('menuToggle');
+    toggle.addEventListener('click', () => {
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute('aria-expanded', String(!menu.hidden));
+      toggle.setAttribute('aria-label', menu.hidden ? 'Otevřít nabídku' : 'Zavřít nabídku');
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') { menu.hidden = true; toggle.setAttribute('aria-expanded', 'false'); } });
+    (async () => {
+      const { data: { user }, error } = await client.auth.getUser();
+      if (error || !user) { location.replace('index.html'); return; }
+      const onboarding = new URLSearchParams(location.search).get('uvod') === '1' && !user.user_metadata?.intro_seen;
+      if (onboarding) {
+        document.getElementById('siteHeader').hidden = true;
+        const button = document.getElementById('continue');
+        button.hidden = false;
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          const { error: updateError } = await client.auth.updateUser({ data: { intro_seen: true } });
+          if (updateError) {
+            document.getElementById('status').textContent = 'Pokračování se nepodařilo uložit. Zkus to znovu.';
+            button.disabled = false;
+            return;
+          }
+          location.replace('postava.html');
+        });
+      } else {
+        document.getElementById('back').hidden = false;
+        const { data: admin } = await client.rpc('is_admin');
+        if (admin) document.getElementById('adminLink').hidden = false;
+      }
+    })();
+  </script>
+  <script src="navigace.js" defer></script>
+</body>
+</html>
