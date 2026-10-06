@@ -762,6 +762,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
           const requestedArea = new URLSearchParams(location.search).get("oblast");
           const first = (requestedArea === "mesto" && maps.find(m => m.order_index === 1 && !locked(m)))
             || (requestedArea === "divocina" && maps.find(m => m.name === "Divoká krajina" && !locked(m)))
+            || (requestedArea === "druziny" && maps.find(m => m.name === "Země družin" && !locked(m)))
             || maps.find(m => !locked(m));
           if (first) await showMap(first, Array.from(tabs.children)[maps.indexOf(first)]);
           else mapDescription.textContent = "Zatím nemáš přístup k žádné mapě.";

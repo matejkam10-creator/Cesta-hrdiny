@@ -143,7 +143,7 @@
       meta.textContent = `${new Date(item.created_at).toLocaleString("cs-CZ")} · Odměna úkolu: ${item.xp_reward} XP`;
       const state = document.createElement("p");
       state.className = item.status;
-      state.textContent = ({ pending: "Čeká na schválení", approved: "Schváleno", returned: "Vráceno k opravě" })[item.status] || item.status;
+      state.textContent = ({ pending: "Čeká na schválení", approved: "Schváleno", returned: "Vráceno k opravě", rejected: "Vráceno k opravě" })[item.status] || item.status;
       const answer = document.createElement("p");
       answer.className = "answer";
       answer.textContent = item.answer || "Bez textu";
@@ -200,7 +200,7 @@
       return special[name] || [1];
     }
     const locationPages = {
-      kuchyne: "kuchyne.html", knihovna: "knihovna.html", herna: "herna.html",
+      kuchyne: "kuchyne.html", knihovna: "knihovna.html", herna: "herna.html", namesti: "namesti.html",
       arena: "arena.html", bazina: "bazina.html", louka: "louka.html", sklad: "sklad.html", stanek: "stanek.html",
       kral_zvere: "kral-zvere.html", placek: "placek.html"
     };
@@ -252,7 +252,7 @@
       link.href = locationPages[quest.location_key] || "mapy.html";
       link.textContent = "Zobrazit místo na mapě";
       card.append(title, meta, description, link, note);
-      if (latest?.status === "returned" && latest.review_comment) {
+      if (["returned", "rejected"].includes(latest?.status) && latest.review_comment) {
         const comment = document.createElement("p");
         comment.className = "comment";
         comment.textContent = "Komentář admina: " + latest.review_comment;
@@ -266,17 +266,16 @@
       }
       if (latest?.photos?.length) appendPhotos(card, latest.photos);
       const allowed = evidenceFor(quest.name);
-      const min = Math.min(...allowed), max = Math.max(...allowed);
+      const max = Math.max(...allowed);
       const form = document.createElement("form");
       const label = document.createElement("label");
       label.textContent = "Vypracování úkolu (10–5000 znaků)";
       const answer = document.createElement("textarea");
       answer.minLength = 10; answer.maxLength = 5000; answer.required = true;
+      if (["returned", "rejected"].includes(latest?.status)) answer.value = latest.text_content || "";
       label.append(answer);
       const fileLabel = document.createElement("label");
-      fileLabel.textContent = allowed.length > 1
-        ? (min === 1 && max === 5 ? "Printy či fotografie: 1–5" : `Printy či fotografie: podle varianty ${allowed.join(" nebo ")}`)
-        : `Printy či fotografie: ${max}`;
+      fileLabel.textContent = "Printy či fotografie (volitelné při odevzdání, nejvýše 5)";
       const fileInput = document.createElement("input");
       fileInput.type = "file"; fileInput.multiple = true;
       fileInput.accept = "image/jpeg,image/png,image/webp";
@@ -304,13 +303,13 @@
           });
         }
       } else if (quest.is_active && character.level >= quest.required_level) {
-        note.textContent = latest?.status === "returned" ? "Předchozí řešení bylo vráceno. Můžeš ho opravit." : "Přijatý úkol připravený k plnění.";
+        note.textContent = ["returned", "rejected"].includes(latest?.status) ? "Předchozí řešení bylo vráceno. Uprav ho a odešli znovu." : "Přijatý úkol připravený k plnění.";
         card.append(form);
         form.addEventListener("submit", async event => {
           event.preventDefault();
           const files = Array.from(fileInput.files);
-          if (!allowed.includes(files.length)) {
-            note.textContent = `Přilož ${allowed.join(" nebo ")} obrázků podle zadání.`; return;
+          if (files.length > 5) {
+            note.textContent = "Přilož nejvýše pět obrázků."; return;
           }
           if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024)) {
             note.textContent = "Každý obrázek musí být JPG, PNG nebo WebP do 5 MB."; return;
@@ -378,7 +377,7 @@
         const quest = questById.get(entry.quest_id);
         const latest = latestByQuest.get(entry.quest_id);
         if (!quest || approvedQuestIds.has(entry.quest_id)) continue;
-        appendAcceptedCard(latest?.status === "returned" ? personalSections.returned : personalSections.accepted,
+        appendAcceptedCard(["returned", "rejected"].includes(latest?.status) ? personalSections.returned : personalSections.accepted,
           quest, entry.accepted_at, character, latest);
         activeCount++;
       }
@@ -390,7 +389,7 @@
         if (acceptedIds.has(questId) && !approvedQuestIds.has(questId)) continue;
         const quest = questById.get(questId);
         const target = s.status === "approved" ? personalSections.approved
-          : s.status === "returned" ? personalSections.returned : personalSections.accepted;
+          : ["returned", "rejected"].includes(s.status) ? personalSections.returned : personalSections.accepted;
         appendCard(target, {
           title: quest ? quest.name + (["louka", "sklad", "stanek"].includes(quest.location_key)
             ? " · " + ({ easy: "lehký", medium: "střední", hard: "těžký" })[quest.difficulty] : "") : "Osobní úkol",
@@ -406,13 +405,19 @@
         displayedGroup.add(key);
         const quest = questById.get(s.quest_id);
         const target = s.status === "approved" ? groupSections.approved
-          : s.status === "returned" ? groupSections.returned : groupSections.accepted;
+          : ["returned", "rejected"].includes(s.status) ? groupSections.returned : groupSections.accepted;
         appendCard(target, {
           title: (groupById.get(s.group_id)?.name || "Družina") + " · " + (quest?.name || "Úkol"),
           xp_reward: quest?.xp_reward ?? 0, created_at: s.created_at, status: s.status,
           answer: s.answer, review_comment: s.review_comment,
           photos: groupFileMap.get(s.id) || []
         });
+        if (["returned", "rejected"].includes(s.status)) {
+          const link = document.createElement("a");
+          link.href = "mapy.html?oblast=druziny";
+          link.textContent = "Opravit v Zemi družin (odevzdává kapitán)";
+          target.lastElementChild.append(link);
+        }
       }
       for (const sections of [personalSections, groupSections]) {
         for (const items of Object.values(sections)) {
