@@ -250,6 +250,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
         const { data: memberships, error: membershipError } = await client.from("group_members")
           .select("group_id, role").eq("character_id", character.id);
         const member = !membershipError && (memberships?.length ?? 0) > 0;
+        const { data: admin, error: adminError } = await client.rpc("is_admin");
         const { data: maps, error: mapsError } = await client.from("maps")
           .select("id, name, description, required_level, order_index")
           .eq("is_active", true).order("order_index");
@@ -260,7 +261,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
         } else {
           const tabs = document.getElementById("mapTabs");
           const view = document.getElementById("mapView");
-          const locked = m => character.level < m.required_level || (m.required_level >= 10 && !member);
+          const locked = m => !(admin === true && !adminError) &&
+            (character.level < m.required_level || (m.required_level >= 10 && !member));
           let chosenQuest = null;
           let currentSubmissionId = null;
           let currentPhotoTarget = null;
@@ -691,6 +693,10 @@ window.createAcceptQuestButton = function (client, quest, character) {
                 document.getElementById("questDialog").showModal();
                 if (quest.is_group_quest) {
                   questStatus.textContent = "Družinový úkol";
+                  if (admin === true && !member) {
+                    questStatus.textContent = "Administrátorský náhled úkolu. Odevzdání je vyhrazené členům družiny.";
+                    return;
+                  }
                   if (!member || !groupSelect.options.length) {
                     questStatus.textContent = "Nejdřív se přidej do družiny.";
                     return;

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Náhled družiny | Cesta hrdiny</title>
+  <style>
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; min-height:100vh; background:#0d0c11 radial-gradient(circle at 12% 8%,#382b3b,transparent 32rem); color:#f4e4c4; font:18px Georgia,serif; }
+    a { color:#efd49b; }
+    header { position:relative; z-index:3; padding:18px; border-bottom:1px solid #5d4d38; background:#17131b; }
+    .header-inner { max-width:1200px; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    header h1 { margin:0; color:#efd49b; font-size:clamp(24px,5vw,36px); }
+    header h1 a { color:inherit; text-decoration:none; }
+    #menuToggle { display:grid; place-items:center; width:48px; height:48px; border:1px solid #b69360; border-radius:10px; background:#302634; color:#f1d398; font:29px Georgia,serif; cursor:pointer; }
+    #mainMenu { position:absolute; top:100%; right:18px; width:min(340px,calc(100vw - 36px)); padding:8px; border:1px solid #89704d; border-radius:0 0 14px 14px; background:#211b25; box-shadow:0 12px 28px #000a; }
+    #mainMenu a { display:block; padding:12px 14px; border-bottom:1px solid #564535; text-decoration:none; }
+    main { width:min(100% - 32px,760px); margin:30px auto 60px; }
+    .card { margin:18px 0; padding:clamp(20px,5vw,32px); border:1px solid #6a573f; border-radius:16px; background:#1b1720; }
+    h2,h3 { color:#efd49b; }
+    .muted { color:#cdbd9e; }
+    li { margin:10px 0; }
+    #description { white-space:pre-wrap; overflow-wrap:anywhere; }
+  </style>
+</head>
+<body>
+  <header><div class="header-inner">
+    <h1><a href="mapy.html">⚔️ Cesta hrdiny</a></h1>
+    <button id="menuToggle" type="button" aria-label="Otevřít nabídku" aria-controls="mainMenu" aria-expanded="false">☰</button>
+    <nav id="mainMenu" aria-label="Hlavní nabídka" hidden><a href="mapy.html">Mapy</a><a href="postava.html">Moje postava</a><a href="urovne.html">Úrovně</a><a href="historie.html">Moje úkoly</a><a href="chat.html">Společný chat</a><a href="druziny.html">Družiny</a><a id="adminLink" href="admin-ukoly.html" hidden>Kontrola úkolů</a></nav>
+  </div></header>
+  <main>
+    <a href="druziny.html">← Zpět na družiny</a>
+    <section class="card">
+      <p class="muted">Administrátorský náhled · pouze pro čtení</p>
+      <h2 id="groupName">Načítám družinu...</h2>
+      <p id="description"></p>
+    </section>
+    <section class="card" id="membersSection" hidden>
+      <h3>Členové družiny</h3>
+      <ul id="members"></ul>
+    </section>
+    <p id="status" role="status"></p>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    const client = supabase.createClient('https://qgnallfqanixepfvrzjn.supabase.co', 'sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi');
+    const menu = document.getElementById('mainMenu');
+    const toggle = document.getElementById('menuToggle');
+    toggle.addEventListener('click', () => {
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    const { data: { user }, error: authError } = await client.auth.getUser();
+    if (authError || !user) location.replace('index.html');
+    else {
+      const { data: admin, error: adminError } = await client.rpc('is_admin');
+      if (adminError || admin !== true) location.replace('druziny.html');
+      else {
+        document.getElementById('adminLink').hidden = false;
+        const groupId = new URLSearchParams(location.search).get('id');
+        const { data: groups, error } = await client.rpc('admin_group_overview');
+        const group = groups?.find(item => item.group_id === groupId);
+        if (error || !group) document.getElementById('status').textContent = 'Družinu se nepodařilo načíst.';
+        else {
+          document.getElementById('groupName').textContent = group.group_name;
+          document.getElementById('description').textContent = group.description || 'Družina zatím nemá popis.';
+          const list = document.getElementById('members');
+          for (const member of group.members || []) {
+            const row = document.createElement('li');
+            row.textContent = member.name + (member.role === 'captain' ? ' · Kapitán' : ' · Člen');
+            list.append(row);
+          }
+          if (!list.children.length) {
+            const row = document.createElement('li');
+            row.textContent = 'Družina zatím nemá žádné členy.';
+            list.append(row);
+          }
+          document.getElementById('membersSection').hidden = false;
+          document.getElementById('status').textContent = 'Počet členů: ' + group.member_count;
+        }
+      }
+    }
+  </script>
+  <script src="navigace.js" defer></script>
+</body>
+</html>

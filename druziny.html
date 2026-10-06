@@ -48,6 +48,11 @@
   <section class="card" aria-label="Seznam tvých družin">
     <div id="druziny">Načítám tvoje družiny...</div>
   </section>
+  <section id="adminGroups" class="card" aria-label="Administrátorský přehled družin" hidden>
+    <h2>Všechny družiny · náhled admina</h2>
+    <p>Herní názvy a členové družin. Náhled neumožňuje měnit jejich obsah.</p>
+    <div id="adminGroupList" role="status">Načítám družiny...</div>
+  </section>
   <section class="card">
     <h3>Vytvořit novou družinu</h3>
     <p>Družinu můžeš založit od úrovně 10 po schválení úkolu „Ve více se to lépe táhne“ na mapě Města. Do jedné družiny se vejde nejvýše pět postav.</p>
@@ -89,6 +94,27 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 if (!user) {
   window.location.href = "index.html";
+}
+const { data: isAdmin, error: adminError } = await client.rpc("is_admin");
+if (!adminError && isAdmin === true) {
+  const panel = document.getElementById("adminGroups");
+  panel.hidden = false;
+  const target = document.getElementById("adminGroupList");
+  const { data: groups, error: overviewError } = await client.rpc("admin_group_overview");
+  if (overviewError) target.textContent = "Přehled se nepodařilo načíst. Nejprve spusť SQL pro náhled admina.";
+  else if (!groups?.length) target.textContent = "Zatím neexistuje žádná družina.";
+  else {
+    target.replaceChildren();
+    for (const group of groups) {
+      const row = document.createElement("p");
+      const link = document.createElement("a");
+      link.className = "group-link";
+      link.href = "druzina-nahled.html?id=" + encodeURIComponent(group.group_id);
+      link.textContent = "⚔️ " + group.group_name + " · " + group.member_count + " členů";
+      row.append(link);
+      target.append(row);
+    }
+  }
 }
   const { data: postava, error: postavaError } = await client
   .from("characters")
