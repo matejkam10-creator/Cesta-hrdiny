@@ -108,7 +108,11 @@
         badge.setAttribute('aria-label', `Úroveň ${level}, pásmo ${range}`);
         return badge;
       }
-      for (const character of data) {
+      const sortedPlayers = [...data].sort((a, b) =>
+        (Number(b.level) || 1) - (Number(a.level) || 1)
+        || (a.nickname || a.name || '').localeCompare(b.nickname || b.name || '', 'cs')
+      );
+      for (const character of sortedPlayers) {
         const card = document.createElement('article');
         const heading = document.createElement('div');
         heading.className = 'player-heading';
