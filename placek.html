@@ -180,7 +180,10 @@ window.createAcceptQuestButton = function (client, quest, character) {
         "Jako doma": { count: 1, label: "Print potvrzení pěti účastí od slečny Val" },
         "Vášnivý sportovec": { count: 1, label: "Print tří nových úrovní na libovolných postech" },
         "Tak jsi snad magor?": { count: 1, label: "Print potvrzení osmi účastí od slečny Val" },
-        "Bez dechu": { count: 1, label: "Print pěti nových úrovní na libovolných postech" }
+        "Bez dechu": { count: 1, label: "Print pěti nových úrovní na libovolných postech" },
+        "Rozvaha na plácku": { count: 1, label: "Print odeslání lektvarů rozvahy nebo zahušťovadel do kumbálu" },
+        "Běhání v kruzích": { count: 1, label: "Print odeslání lektvarů rozvahy nebo zahušťovadel do kumbálu" },
+        "Zpátky do reality": { count: 1, label: "Print odeslání lektvarů rozvahy nebo zahušťovadel do kumbálu" }
       }[quest.name] || { count: 1, label: "Print splnění úkolu" };
       const difficulty = { easy: "Lehký", medium: "Střední", hard: "Těžký" };
       const card = element("article", "quest-card");
@@ -394,7 +397,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
             "Lítač": [20, 27], "Zkušenosti kam se podíváš": [50, 25],
             "Trénování je moje vášeň": [80, 27], "Jako doma": [25, 52],
             "Vášnivý sportovec": [74, 52], "Tak jsi snad magor?": [34, 76],
-            "Bez dechu": [67, 76]
+            "Bez dechu": [67, 76], "Rozvaha na plácku": [50, 42],
+            "Běhání v kruzích": [50, 60], "Zpátky do reality": [50, 88]
           };
           quests.forEach((quest, index) => {
             if (approvedQuestIds.has(quest.id)) return;
