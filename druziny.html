@@ -16,6 +16,11 @@
     #druziny p { margin: 0; }
     #druziny .group-link { display: block; padding: 14px 0; border-bottom: 1px solid #514434; font-size: 1.08em; }
     #druziny .group-link:last-child { border-bottom: 0; }
+    .recruitment-item { padding: 14px 0; border-bottom: 1px solid #514434; }
+    .recruitment-item:last-child { border-bottom: 0; }
+    .recruitment-item h3 { margin: 0 0 6px; }
+    .recruitment-item p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .recruitment-item .member-count { color: #cdbd9e; font-size: .9em; }
     input { display: block; width: 100%; padding: 12px; margin: 10px 0 14px; border: 1px solid #a88a61; border-radius: 8px; background: #151219; color: #fff; font: inherit; }
     button { padding: 10px 18px; border: 0; border-radius: 8px; background: #a98248; color: #fff; font: inherit; cursor: pointer; }
     button:disabled { opacity: .6; cursor: wait; }
@@ -47,6 +52,11 @@
   <h2>Moje družiny</h2>
   <section class="card" aria-label="Seznam tvých družin">
     <div id="druziny">Načítám tvoje družiny...</div>
+  </section>
+  <section id="recruitmentGroups" class="card" aria-label="Popisy družin" hidden>
+    <h2>Poznej družiny</h2>
+    <p>Od úrovně 10 si můžeš přečíst, čemu se družiny věnují. O přidání se domluv s jejich kapitánem.</p>
+    <div id="recruitmentGroupList" role="status">Načítám popisy družin...</div>
   </section>
   <section id="adminGroups" class="card" aria-label="Administrátorský přehled družin" hidden>
     <h2>Všechny družiny · náhled admina</h2>
@@ -127,6 +137,30 @@ if (postavaError) {
     "Postavu se nepodařilo načíst.";
 }
   if (!postavaError) {
+  if (postava.level >= 10) {
+    const panel = document.getElementById("recruitmentGroups");
+    const target = document.getElementById("recruitmentGroupList");
+    panel.hidden = false;
+    const { data: groups, error: recruitmentError } = await client.rpc("group_recruitment_overview");
+    if (recruitmentError) target.textContent = "Popisy družin se nepodařilo načíst: " + recruitmentError.message;
+    else if (!groups?.length) target.textContent = "Zatím neexistuje žádná družina.";
+    else {
+      target.replaceChildren();
+      for (const group of groups) {
+        const item = document.createElement("article");
+        item.className = "recruitment-item";
+        const title = document.createElement("h3");
+        title.textContent = "⚔️ " + group.group_name;
+        const count = document.createElement("span");
+        count.className = "member-count";
+        count.textContent = `${group.member_count} / 5 členů`;
+        const description = document.createElement("p");
+        description.textContent = group.description?.trim() || "Družina zatím nemá popis.";
+        item.append(title, count, description);
+        target.append(item);
+      }
+    }
+  }
   const { data: clenstvi, error: clenstviError } = await client
     .from("group_members")
     .select("group_id, role")
