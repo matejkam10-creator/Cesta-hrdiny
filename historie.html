@@ -204,10 +204,25 @@
       arena: "arena.html", bazina: "bazina.html", louka: "louka.html", sklad: "sklad.html", stanek: "stanek.html",
       kral_zvere: "kral-zvere.html", placek: "placek.html"
     };
+    async function loadProofImage(file) {
+      if (typeof createImageBitmap === "function") {
+        try { return await createImageBitmap(file); } catch (_) { /* Zkusíme načtení přes img. */ }
+      }
+      const url = URL.createObjectURL(file);
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error("Obrázek se v tomto prohlížeči nepodařilo načíst. Zkus nový snímek obrazovky ve formátu PNG nebo JPG."));
+          img.src = url;
+        });
+        return img;
+      } finally { URL.revokeObjectURL(url); }
+    }
     async function attachEvidence(submissionId, files, note) {
       for (let index = 0; index < files.length; index++) {
         note.textContent = `Nahrávám obrázek ${index + 1} z ${files.length}...`;
-        const source = await createImageBitmap(files[index]);
+        const source = await loadProofImage(files[index]);
         let blob;
         try {
           const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
@@ -221,7 +236,7 @@
           blob = await new Promise((resolve, reject) => canvas.toBlob(
             data => data ? resolve(data) : reject(new Error("Obrázek se nepodařilo zpracovat.")), "image/jpeg", .85
           ));
-        } finally { source.close(); }
+        } finally { source.close?.(); }
         if (blob.size > 5 * 1024 * 1024) throw new Error("Obrázek je příliš velký.");
         const path = (await client.auth.getUser()).data.user.id + "/" + crypto.randomUUID() + ".jpg";
         const { error: uploadError } = await client.storage.from("quest-evidence")
