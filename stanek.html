@@ -365,14 +365,16 @@ window.createAcceptQuestButton = function (client, quest, character) {
         const { data: isAdmin, error: adminError } = await client.rpc("is_admin");
         if (adminError) { loading.textContent = "Oprávnění se nepodařilo ověřit. Obnov stránku."; }
         else {
-        let approvedQuestIds = new Set();
-        if (!isAdmin) {
-          const { data: approved, error: approvedError } = await client.from("quest_assignments")
-            .select("quest_id").eq("character_id", character.id).eq("status", "approved");
-          if (approvedError) { loading.textContent = "Splněné úkoly se nepodařilo načíst. Obnov stránku."; }
-          else approvedQuestIds = new Set((approved || []).map(item => item.quest_id));
-          if (approvedError) throw approvedError;
+        const { data: progress, error: progressError } = await client.from("quest_assignments")
+          .select("quest_id, status").eq("character_id", character.id)
+          .in("status", ["submitted", "approved"]);
+        if (progressError) {
+          loading.textContent = "Postup úkolů se nepodařilo načíst. Obnov stránku.";
+          throw progressError;
         }
+        const progressedQuestIds = new Set((progress || []).map(item => item.quest_id));
+        const approvedQuestIds = isAdmin ? new Set()
+          : new Set((progress || []).filter(item => item.status === "approved").map(item => item.quest_id));
         const { data: quests, error } = await client.from("quests")
           .select("id, name, description, difficulty, xp_reward, required_level")
           .eq("location_key", "stanek").eq("is_active", true).order("created_at");
@@ -395,6 +397,14 @@ window.createAcceptQuestButton = function (client, quest, character) {
             const variants = groups.get(name) || [];
             if (!variants.length || variants.every(quest => approvedQuestIds.has(quest.id))) return;
             const marker = element("button", "quest-marker", "!");
+            if (["easy", "medium", "hard"].every(difficulty =>
+              variants.some(quest => quest.difficulty === difficulty))) {
+              if (variants.some(quest => quest.difficulty === "medium" && progressedQuestIds.has(quest.id))) {
+                marker.classList.add("hard");
+              } else if (variants.some(quest => quest.difficulty === "easy" && progressedQuestIds.has(quest.id))) {
+                marker.classList.add("medium");
+              }
+            }
             marker.type = "button";
             marker.style.left = [22, 50, 78][index % 3] + "%";
             marker.style.top = [35, 73][Math.floor(index / 3)] + "%";
