@@ -318,23 +318,9 @@
         tlacitko.disabled = true;
         stav.textContent = "Nahrávám avatar...";
         try {
-          const puvodni = await createImageBitmap(soubor);
-          const pomer = Math.min(1, 512 / Math.max(puvodni.width, puvodni.height));
-          const platno = document.createElement("canvas");
-          platno.width = Math.max(1, Math.round(puvodni.width * pomer));
-          platno.height = Math.max(1, Math.round(puvodni.height * pomer));
-          const kontext = platno.getContext("2d");
-          if (!kontext) throw new Error("Obrázek nelze zpracovat.");
-          kontext.fillStyle = "#ffffff";
-          kontext.fillRect(0, 0, platno.width, platno.height);
-          kontext.drawImage(puvodni, 0, 0, platno.width, platno.height);
-          puvodni.close();
-          const zmenseny = await new Promise((resolve, reject) => {
-            platno.toBlob(blob => blob ? resolve(blob) : reject(new Error("Obrázek nelze zpracovat.")), "image/jpeg", 0.85);
-          });
           const cesta = user.id + "/avatar.jpg";
-          const { error: chybaNahrani } = await client.storage.from("avatars").upload(cesta, zmenseny, {
-            contentType: "image/jpeg", upsert: true, cacheControl: "3600"
+          const { error: chybaNahrani } = await client.storage.from("avatars").upload(cesta, soubor, {
+            contentType: soubor.type, upsert: true, cacheControl: "3600"
           });
           if (chybaNahrani) throw chybaNahrani;
           const { data: urlData } = client.storage.from("avatars").getPublicUrl(cesta);
