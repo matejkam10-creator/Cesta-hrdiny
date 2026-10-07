@@ -70,6 +70,10 @@
     </div>
     <div id="clenove">Načítám členy...</div>
   </section>
+  <section id="zadostiODruzinu" class="card" hidden>
+    <h3>Žádosti o přijetí</h3>
+    <div id="seznamZadosti" role="status">Načítám žádosti...</div>
+  </section>
 
 <section id="chatDruziny" class="card" style="display:none;">
   <h3>Chat družiny</h3>
@@ -156,6 +160,49 @@ if (!user) {
     
     document.getElementById("novyPopis").style.display = "inline-block";
     document.getElementById("ulozitPopis").style.display = "inline-block";
+    const panelZadosti = document.getElementById("zadostiODruzinu");
+    const seznamZadosti = document.getElementById("seznamZadosti");
+    panelZadosti.hidden = false;
+    async function nacistZadosti() {
+      const { data: zadosti, error: chybaZadosti } = await client.rpc("pending_group_join_requests", {
+        p_group_id: groupId
+      });
+      if (chybaZadosti) {
+        seznamZadosti.textContent = "Žádosti se nepodařilo načíst: " + chybaZadosti.message;
+        return;
+      }
+      if (!zadosti?.length) {
+        seznamZadosti.textContent = "Zatím žádné čekající žádosti.";
+        return;
+      }
+      seznamZadosti.replaceChildren();
+      for (const zadost of zadosti) {
+        const radek = document.createElement("div");
+        const jmeno = document.createElement("p");
+        jmeno.textContent = `${zadost.player_name} · úroveň ${zadost.player_level}`;
+        radek.append(jmeno);
+        for (const [schvalit, popisek] of [[true, "Schválit"], [false, "Odmítnout"]]) {
+          const tlacitko = document.createElement("button");
+          tlacitko.type = "button";
+          tlacitko.textContent = popisek;
+          tlacitko.addEventListener("click", async () => {
+            radek.querySelectorAll("button").forEach(button => { button.disabled = true; });
+            const { error: chyba } = await client.rpc("decide_group_join_request", {
+              p_request_id: zadost.request_id, p_approve: schvalit
+            });
+            if (chyba) {
+              jmeno.textContent = "Rozhodnutí se nepodařilo uložit: " + chyba.message;
+              radek.querySelectorAll("button").forEach(button => { button.disabled = false; });
+            } else {
+              location.reload();
+            }
+          });
+          radek.append(tlacitko);
+        }
+        seznamZadosti.append(radek);
+      }
+    }
+    await nacistZadosti();
     }
   const idsClenu = clenove.map(c => c.character_id);
 
