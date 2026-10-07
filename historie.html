@@ -288,8 +288,29 @@
               note.textContent = `Vyber 1 až ${max - count} obrázků.`; return;
             }
             add.disabled = true;
-            try { await attachEvidence(latest.id, files, note); location.reload(); }
-            catch (error) { note.textContent = "Přílohy se nepodařilo přidat: " + error.message; add.disabled = false; }
+            try {
+              note.textContent = "Ověřuji stav řešení...";
+              const { data: current, error: checkError } = await client.from("submissions")
+                .select("status").eq("id", latest.id).single();
+              if (checkError) throw checkError;
+              if (current.status !== "pending") {
+                note.textContent = "Stav řešení se změnil. Načítám aktuální podobu úkolu...";
+                location.reload();
+                return;
+              }
+              await attachEvidence(latest.id, files, note);
+              location.reload();
+            } catch (error) {
+              const { data: current } = await client.from("submissions")
+                .select("status").eq("id", latest.id).maybeSingle();
+              if (current && current.status !== "pending") {
+                note.textContent = "Úkol byl mezitím vrácen nebo schválen. Načítám jeho aktuální stav...";
+                location.reload();
+                return;
+              }
+              note.textContent = "Přílohy se nepodařilo přidat: " + error.message;
+              add.disabled = false;
+            }
           });
         }
       } else if (quest.is_active && character.level >= quest.required_level) {
