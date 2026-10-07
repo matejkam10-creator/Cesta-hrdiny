@@ -102,7 +102,7 @@
     groupTab.addEventListener("click", () => selectTab(true));
     function makeCategories(parent) {
       const result = {};
-      for (const [key, title] of [["accepted", "Přijaté úkoly"], ["approved", "Splněné úkoly"], ["returned", "Vrácené úkoly"]]) {
+      for (const [key, title] of [["accepted", "Přijaté úkoly"], ["returned", "Vrácené úkoly"], ["approved", "Splněné úkoly"]]) {
         const section = document.createElement("section");
         section.className = "category";
         const heading = document.createElement("h2");
