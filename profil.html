@@ -37,6 +37,7 @@
     .achievement-art { display:block; flex:none; width:84px; height:84px; border-radius:50%; background-color:#211a20; background-repeat:no-repeat; background-size:400% 300%; background-position:var(--badge-x) var(--badge-y); box-shadow:0 3px 12px #0009; }
     .achievement-art.level { background-image:url('odznaky-urovne.png'); background-size:400% 266.667%; }
     .achievement-art.journey { background-image:url('odznaky-ukoly-druzina.png'); }
+    .achievement-art.location { background-image:url('odznaky-lokace.png'); background-size:300% 200%; }
     .achievement h3 { margin:0 0 5px; color:#efd49b; font-size:1em; overflow-wrap:anywhere; }
     .achievement p { margin:0; color:#cdbd9e; font-size:.82em; line-height:1.4; }
   </style>
@@ -82,16 +83,25 @@
     const list = document.createElement('ul');
     list.className = 'achievements-list';
     for (const badge of data) {
-      if (!['levels','journey'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
+      if (!['levels','journey','locations'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
       const columns = 4;
       const col = badge.slot % columns, row = Math.floor(badge.slot / columns);
-      if (badge.sheet === 'levels' ? row > 1 : row > 2) continue;
+      if (badge.sheet === 'levels' && row > 1) continue;
+      if (badge.sheet === 'journey' && row > 2) continue;
       const item = document.createElement('li'); item.className = 'achievement';
       const art = document.createElement('span');
-      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : 'journey');
+      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : 'journey');
       art.setAttribute('aria-hidden','true');
-      art.style.setProperty('--badge-x',col * 100 / 3 + '%');
-      art.style.setProperty('--badge-y',badge.sheet === 'levels' ? (row ? '85%' : '15%') : row * 50 + '%');
+      if (badge.sheet === 'locations') {
+        const positions = {1:[0,0],3:[50,0],6:[100,0],10:[24,95],15:[76,95]};
+        const position = positions[badge.slot];
+        if (!position) continue;
+        art.style.setProperty('--badge-x',position[0] + '%');
+        art.style.setProperty('--badge-y',position[1] + '%');
+      } else {
+        art.style.setProperty('--badge-x',col * 100 / 3 + '%');
+        art.style.setProperty('--badge-y',badge.sheet === 'levels' ? (row ? '85%' : '15%') : row * 50 + '%');
+      }
       const copy = document.createElement('div');
       const title = document.createElement('h3'); title.textContent = badge.title;
       const detail = document.createElement('p'); detail.textContent = badge.description;
