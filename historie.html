@@ -143,7 +143,7 @@
       meta.textContent = `${new Date(item.created_at).toLocaleString("cs-CZ")} · Odměna úkolu: ${item.xp_reward} XP`;
       const state = document.createElement("p");
       state.className = item.status;
-      state.textContent = ({ pending: "Čeká na schválení", approved: "Schváleno", returned: "Vráceno k opravě", rejected: "Vráceno k opravě" })[item.status] || item.status;
+      state.textContent = ({ draft: "Uložený koncept družiny", pending: "Čeká na schválení", approved: "Schváleno", returned: "Vráceno k opravě", rejected: "Vráceno k opravě" })[item.status] || item.status;
       const answer = document.createElement("p");
       answer.className = "answer";
       answer.textContent = item.answer || "Bez textu";
@@ -354,22 +354,30 @@
       ]);
       if (aError || mError || acceptedError) throw new Error("Úkoly se nepodařilo načíst: " + (aError || mError || acceptedError).message);
       const groupIds = [...new Set(memberships.map(m => m.group_id))];
-      const [personal, grouped, groups] = await Promise.all([
+      const [personal, grouped, groups, drafts] = await Promise.all([
         selectMany("submissions", "id, assignment_id, text_content, status, review_comment, created_at", "assignment_id", assignments.map(a => a.id)),
         selectMany("group_submissions", "id, group_id, quest_id, answer, status, review_comment, created_at", "group_id", groupIds),
-        selectMany("groups", "id, name", "id", groupIds)
+        selectMany("groups", "id, name", "id", groupIds),
+        selectMany("group_quest_drafts", "group_id, quest_id, answer, updated_at", "group_id", groupIds)
       ]);
-      const questIds = [...new Set([...assignments.map(a => a.quest_id), ...grouped.map(s => s.quest_id), ...accepted.map(a => a.quest_id)])];
-      const [quests, personalPhotos, groupPhotos] = await Promise.all([
+      const questIds = [...new Set([...assignments.map(a => a.quest_id), ...grouped.map(s => s.quest_id), ...drafts.map(d => d.quest_id), ...accepted.map(a => a.quest_id)])];
+      const [quests, personalPhotos, groupPhotos, draftPhotos] = await Promise.all([
         selectMany("quests", "id, name, description, difficulty, xp_reward, required_level, is_active, location_key, map_id", "id", questIds),
         selectMany("submission_files", "submission_id, file_url", "submission_id", personal.map(s => s.id), "uploaded_at"),
-        selectMany("group_submission_files", "group_submission_id, file_url", "group_submission_id", grouped.map(s => s.id), "uploaded_at")
+        selectMany("group_submission_files", "group_submission_id, file_url", "group_submission_id", grouped.map(s => s.id), "uploaded_at"),
+        selectMany("group_quest_draft_files", "group_id, quest_id, file_url, uploaded_at", "group_id", groupIds, "uploaded_at")
       ]);
       const assignmentById = new Map(assignments.map(a => [a.id, a]));
       const questById = new Map(quests.map(q => [q.id, q]));
       const groupById = new Map(groups.map(g => [g.id, g]));
       const personalFileMap = fileMap(personalPhotos, "submission_id");
       const groupFileMap = fileMap(groupPhotos, "group_submission_id");
+      const draftFileMap = new Map();
+      for (const file of draftPhotos) {
+        const key = file.group_id + ":" + file.quest_id;
+        if (!draftFileMap.has(key)) draftFileMap.set(key, []);
+        draftFileMap.get(key).push(file.file_url);
+      }
       personal.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       grouped.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       const latestByQuest = new Map();
@@ -411,6 +419,30 @@
         });
       }
       const displayedGroup = new Set();
+      const resolvedGroup = new Set(grouped.filter(s => ["pending", "approved"].includes(s.status))
+        .map(s => s.group_id + ":" + s.quest_id));
+      const sharedDrafts = new Map(drafts.map(d => [d.group_id + ":" + d.quest_id, d]));
+      for (const file of draftPhotos) {
+        const key = file.group_id + ":" + file.quest_id;
+        if (!sharedDrafts.has(key)) sharedDrafts.set(key, {
+          group_id: file.group_id, quest_id: file.quest_id, answer: "", updated_at: file.uploaded_at
+        });
+      }
+      for (const draft of sharedDrafts.values()) {
+        const key = draft.group_id + ":" + draft.quest_id;
+        if (resolvedGroup.has(key)) continue;
+        const quest = questById.get(draft.quest_id);
+        appendCard(groupSections.accepted, {
+          title: (groupById.get(draft.group_id)?.name || "Družina") + " · " + (quest?.name || "Úkol"),
+          xp_reward: quest?.xp_reward ?? 0, created_at: draft.updated_at,
+          status: "draft", answer: draft.answer || "Zatím byly uloženy jen fotografie.",
+          photos: draftFileMap.get(key) || []
+        });
+        const link = document.createElement("a");
+        link.href = "mapy.html?oblast=druziny";
+        link.textContent = "Otevřít v Zemi družin";
+        groupSections.accepted.lastElementChild.append(link);
+      }
       for (const s of [...grouped.filter(s => s.status === "approved"), ...grouped.filter(s => s.status !== "approved")]) {
         const key = s.group_id + ":" + s.quest_id;
         if (displayedGroup.has(key)) continue;

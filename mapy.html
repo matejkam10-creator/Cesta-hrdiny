@@ -136,6 +136,7 @@
         <button type="submit">Odevzdat za družinu</button>
         <p id="draftStatus" role="status">Koncept uložíš tlačítkem před zavřením úkolu.</p>
       </form>
+      <div id="sharedGroupDraft" class="quest-panel" hidden><h3>Uložené řešení družiny</h3><p id="sharedGroupAnswer" style="white-space:pre-wrap;overflow-wrap:anywhere"></p></div>
     </div>
     <div id="photoSection" class="quest-panel" hidden>
       <h3>Fotky k řešení</h3>
@@ -277,6 +278,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
           const groupStatus = document.getElementById("groupStatus");
           const groupAnswer = document.getElementById("groupAnswer");
           const draftStatus = document.getElementById("draftStatus");
+          const sharedGroupDraft = document.getElementById("sharedGroupDraft");
+          const sharedGroupAnswer = document.getElementById("sharedGroupAnswer");
           const teamIdeas = document.getElementById("teamIdeas");
           const ideaList = document.getElementById("ideaList");
           const ideaForm = document.getElementById("ideaForm");
@@ -390,6 +393,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             const questId = chosenQuest.id;
             const groupId = groupSelect.value;
             groupQuestForm.hidden = true;
+            sharedGroupDraft.hidden = true;
             groupAnswer.value = "";
             draftStatus.textContent = "Koncept uložíš tlačítkem před zavřením úkolu.";
             teamIdeas.hidden = true;
@@ -416,18 +420,26 @@ window.createAcceptQuestButton = function (client, quest, character) {
               photoFile.hidden = false;
               photoStatus.textContent = "Fotky můžeš vybrat teď nebo přidat po odevzdání řešení.";
             }
-            if (!groupQuestForm.hidden) {
+            if (submission?.status !== "approved") {
               const { data: saved, error: draftError } = await client.from("group_quest_drafts")
                 .select("answer").eq("group_id", groupId).eq("quest_id", questId).maybeSingle();
               if (chosenQuest?.id !== questId || groupSelect.value !== groupId) return;
               if (draftError) draftStatus.textContent = "Koncept se nepodařilo načíst: " + draftError.message;
-              else if (saved && !groupAnswer.value) {
+              else if (saved && !groupQuestForm.hidden && !groupAnswer.value) {
                 groupAnswer.value = saved.answer;
                 draftStatus.textContent = "Uložený koncept byl obnoven.";
+              } else if (saved && groupQuestForm.hidden && submission?.status !== "pending") {
+                sharedGroupAnswer.textContent = saved.answer || "Zatím byly uloženy jen fotografie.";
+                sharedGroupDraft.hidden = false;
               }
             }
-            if (submission) await loadPhotoFiles("group", submission.id,
-              submission.status === "pending" && memberships.find(m => m.group_id === groupId)?.role === "captain");
+            if (submission?.status === "pending" || submission?.status === "approved") {
+              await loadPhotoFiles("group", submission.id,
+                submission.status === "pending" && memberships.find(m => m.group_id === groupId)?.role === "captain");
+            } else {
+              await loadPhotoFiles("draft", questId, true, groupId);
+              photoStatus.textContent = photoCount ? "Uložené fotky vidí celá družina." : "Vyber fotky a klepni na Uložit fotky pro družinu.";
+            }
             await loadIdeas(groupId, questId, submission?.status !== "pending" && submission?.status !== "approved");
           }
           groupSelect.addEventListener("change", loadGroupQuestStatus);
@@ -445,11 +457,15 @@ window.createAcceptQuestButton = function (client, quest, character) {
             button.disabled = false;
             if (error) groupStatus.textContent = "Řešení se nepodařilo odeslat: " + error.message;
             else {
+              const { error: copyError } = await client.rpc("publish_group_draft_photos", {
+                p_group_submission_id: submissionId
+              });
               groupQuestForm.hidden = true;
               ideaForm.hidden = true;
               draftStatus.textContent = "Řešení bylo odevzdáno.";
               groupStatus.textContent = "Řešení družiny čeká na schválení.";
               await loadPhotoFiles("group", submissionId, true);
+              if (copyError) groupStatus.textContent = "Řešení bylo odevzdáno, ale uložené fotky se nepodařilo převést: " + copyError.message;
               if (photoFile.files.length) await uploadPhotos();
             }
           });
@@ -469,12 +485,13 @@ window.createAcceptQuestButton = function (client, quest, character) {
             photoLinks.replaceChildren();
             photoStatus.textContent = "";
           }
-          async function loadPhotoFiles(kind, id, canUpload) {
-            currentPhotoTarget = { kind, id };
-            const table = kind === "group" ? "group_submission_files" : "submission_files";
-            const column = kind === "group" ? "group_submission_id" : "submission_id";
-            const { data: files, error } = await client.from(table)
-              .select("file_url").eq(column, id).order("uploaded_at");
+          async function loadPhotoFiles(kind, id, canUpload, groupId = null) {
+            currentPhotoTarget = { kind, id, groupId };
+            const table = kind === "draft" ? "group_quest_draft_files" : kind === "group" ? "group_submission_files" : "submission_files";
+            const column = kind === "draft" ? "quest_id" : kind === "group" ? "group_submission_id" : "submission_id";
+            let query = client.from(table).select("file_url").eq(column, id).order("uploaded_at");
+            if (kind === "draft") query = query.eq("group_id", groupId);
+            const { data: files, error } = await query;
             if (currentPhotoTarget?.id !== id || currentPhotoTarget?.kind !== kind) return;
             photoSection.hidden = false;
             photoLinks.replaceChildren();
@@ -496,6 +513,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             });
             photoFile.hidden = !canUpload || photoCount >= 5;
             photoUpload.hidden = !canUpload || photoCount >= 5;
+            photoUpload.textContent = kind === "draft" ? "Uložit fotky pro družinu" : "Přidat vybrané fotky";
             if (photoCount >= 5) photoStatus.textContent = "Byl dosažen limit 5 fotek.";
           }
           async function uploadPhotos() {
@@ -536,22 +554,24 @@ window.createAcceptQuestButton = function (client, quest, character) {
                 const { error: uploadError } = await client.storage.from("quest-evidence")
                   .upload(path, blob, { contentType: "image/jpeg", upsert: false });
                 if (uploadError) throw uploadError;
-                const args = target.kind === "group"
+                const args = target.kind === "draft"
+                  ? { p_group_id: target.groupId, p_quest_id: target.id, p_file_path: path }
+                  : target.kind === "group"
                   ? { p_group_submission_id: target.id, p_file_path: path }
                   : { p_submission_id: target.id, p_file_path: path };
                 const { error: attachError } = await client.rpc(
-                  target.kind === "group" ? "attach_group_photo" : "attach_personal_photo", args);
+                  target.kind === "draft" ? "attach_group_draft_photo" : target.kind === "group" ? "attach_group_photo" : "attach_personal_photo", args);
                 if (attachError) throw attachError;
                 uploaded++;
               }
               if (currentPhotoTarget?.id === target.id) {
                 photoFile.value = "";
-                await loadPhotoFiles(target.kind, target.id, true);
-                photoStatus.textContent = `${uploaded} fotek přiloženo k řešení.`;
+                await loadPhotoFiles(target.kind, target.id, true, target.groupId);
+                photoStatus.textContent = target.kind === "draft" ? `${uploaded} fotek uloženo pro družinu.` : `${uploaded} fotek přiloženo k řešení.`;
               }
             } catch (error) {
               if (currentPhotoTarget?.id === target.id) {
-                await loadPhotoFiles(target.kind, target.id, true);
+                await loadPhotoFiles(target.kind, target.id, true, target.groupId);
                 photoStatus.textContent = `${uploaded} z ${files.length} fotek přiloženo. Chyba: ${error.message}`;
               }
             } finally {
