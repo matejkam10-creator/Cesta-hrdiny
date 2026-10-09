@@ -63,6 +63,9 @@
     .achievement-art.level { background-image:url('odznaky-urovne.png'); background-size:400% 266.667%; }
     .achievement-art.journey { background-image:url('odznaky-ukoly-druzina.png'); }
     .achievement-art.location { background-image:url('odznaky-lokace.png'); background-size:300% 200%; }
+    .achievement-art.hidden-location { background-image:url('odznaky-skryte-lokace.webp'); background-size:400% 100%; }
+    .creature-icons.large { display:flex; flex-wrap:wrap; gap:12px; }
+    .creature-icons.large .creature-icon { width:76px; height:76px; border:2px solid #9f70b6; border-radius:50%; object-fit:cover; box-shadow:0 3px 12px #0009; }
     .achievement h3 { margin:0 0 5px; color:#efd49b; font-size:1em; overflow-wrap:anywhere; }
     .achievement p { margin:0; color:#cdbd9e; font-size:.82em; line-height:1.4; }
   </style>
@@ -78,6 +81,7 @@
 <main>
   <h2>Moje postava</h2>
   <section id="postava" class="karta">Načítám tvoji postavu...</section>
+  <section id="creaturesPanel" class="karta" hidden><h2>Magická stvoření</h2><div id="creatures"></div></section>
   <section id="achievementsPanel" class="karta" hidden><h2>Achievementy</h2><div id="achievements" role="status">Načítám získané odznaky...</div></section>
   <form id="createCharacter" class="karta" hidden>
     <h3>Vytvořit postavu</h3>
@@ -114,6 +118,7 @@
   <button id="logout">Odhlásit se</button>
 </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="tvorove.js"></script>
   <script>
     const menuButton = document.getElementById("menuToggle");
     const menu = document.getElementById("mainMenu");
@@ -154,16 +159,20 @@
     const list = document.createElement('ul');
     list.className = 'achievements-list';
     for (const badge of data) {
-      if (!['levels','journey','locations'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
+      if (!['levels','journey','locations','hidden'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
       const columns = 4;
       const col = badge.slot % columns, row = Math.floor(badge.slot / columns);
       if (badge.sheet === 'levels' && row > 1) continue;
       if (badge.sheet === 'journey' && row > 2) continue;
       const item = document.createElement('li'); item.className = 'achievement';
       const art = document.createElement('span');
-      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : 'journey');
+      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : badge.sheet === 'hidden' ? 'hidden-location' : 'journey');
       art.setAttribute('aria-hidden','true');
-      if (badge.sheet === 'locations') {
+      if (badge.sheet === 'hidden') {
+        if (badge.slot < 0 || badge.slot > 3) continue;
+        art.style.setProperty('--badge-x', badge.slot * 100 / 3 + '%');
+        art.style.setProperty('--badge-y', '50%');
+      } else if (badge.sheet === 'locations') {
         const positions = {1:[0,0],3:[50,0],6:[100,0],10:[24,95],15:[76,95]};
         const position = positions[badge.slot];
         if (!position) continue;
@@ -253,6 +262,12 @@
       karta.append(jmeno, skutecneJmeno, titul, datum, uroven, xp, popis);
       document.getElementById("achievementsPanel").hidden = false;
       renderAchievements(client, postava.id, document.getElementById("achievements"));
+      loadEarnedCreatures(client).then(creatures => {
+        const owned = creatures.get(postava.id) || [];
+        if (!owned.length) return;
+        document.getElementById('creatures').append(createCreatureIcons(owned));
+        document.getElementById('creaturesPanel').hidden = false;
+      }).catch(() => {});
       const actions = document.getElementById("profileActions");
       const editPanel = document.getElementById("editPanel");
       const avatarPanel = document.getElementById("avatarPanel");

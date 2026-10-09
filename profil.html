@@ -38,6 +38,9 @@
     .achievement-art.level { background-image:url('odznaky-urovne.png'); background-size:400% 266.667%; }
     .achievement-art.journey { background-image:url('odznaky-ukoly-druzina.png'); }
     .achievement-art.location { background-image:url('odznaky-lokace.png'); background-size:300% 200%; }
+    .achievement-art.hidden-location { background-image:url('odznaky-skryte-lokace.webp'); background-size:400% 100%; }
+    .creature-icons.large { display:flex; flex-wrap:wrap; gap:12px; }
+    .creature-icons.large .creature-icon { width:72px; height:72px; border:2px solid #9f70b6; border-radius:50%; object-fit:cover; box-shadow:0 3px 12px #0009; }
     .achievement h3 { margin:0 0 5px; color:#efd49b; font-size:1em; overflow-wrap:anywhere; }
     .achievement p { margin:0; color:#cdbd9e; font-size:.82em; line-height:1.4; }
   </style>
@@ -50,10 +53,12 @@
   <article id="profile" class="card" hidden>
     <div class="heading"><div id="avatar"></div><div><h1 id="name"></h1><p id="gameName" class="muted" hidden></p><p id="title" class="muted"></p><div id="level"></div></div></div>
     <h2>O postavě</h2><p id="description" class="description"></p>
+    <section id="creaturesPanel" hidden><h2>Magická stvoření</h2><div id="creatures"></div></section>
     <section aria-labelledby="achievementsTitle"><h2 id="achievementsTitle">Achievementy</h2><div id="achievements" role="status">Načítám získané odznaky...</div></section>
   </article>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="tvorove.js"></script>
 <script>
   const client = supabase.createClient('https://qgnallfqanixepfvrzjn.supabase.co','sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi');
   const status = document.getElementById('status');
@@ -83,16 +88,20 @@
     const list = document.createElement('ul');
     list.className = 'achievements-list';
     for (const badge of data) {
-      if (!['levels','journey','locations'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
+      if (!['levels','journey','locations','hidden'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
       const columns = 4;
       const col = badge.slot % columns, row = Math.floor(badge.slot / columns);
       if (badge.sheet === 'levels' && row > 1) continue;
       if (badge.sheet === 'journey' && row > 2) continue;
       const item = document.createElement('li'); item.className = 'achievement';
       const art = document.createElement('span');
-      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : 'journey');
+      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : badge.sheet === 'hidden' ? 'hidden-location' : 'journey');
       art.setAttribute('aria-hidden','true');
-      if (badge.sheet === 'locations') {
+      if (badge.sheet === 'hidden') {
+        if (badge.slot < 0 || badge.slot > 3) continue;
+        art.style.setProperty('--badge-x', badge.slot * 100 / 3 + '%');
+        art.style.setProperty('--badge-y', '50%');
+      } else if (badge.sheet === 'locations') {
         const positions = {1:[0,0],3:[50,0],6:[100,0],10:[24,95],15:[76,95]};
         const position = positions[badge.slot];
         if (!position) continue;
@@ -139,6 +148,14 @@
     document.getElementById('title').textContent=character.title || 'Bez titulu';
     document.getElementById('level').append(levelBadge(character.level));
     document.getElementById('description').textContent=character.description || 'Postava zatím nemá popis.';
+    try {
+      const creatures = await loadEarnedCreatures(client);
+      const owned = creatures.get(character.id) || [];
+      if (owned.length) {
+        document.getElementById('creatures').append(createCreatureIcons(owned));
+        document.getElementById('creaturesPanel').hidden = false;
+      }
+    } catch (_) { /* Profil funguje i při nedostupné sbírce. */ }
     status.hidden=true;
     document.getElementById('profile').hidden=false;
     await renderAchievements(client,character.id,document.getElementById('achievements'));
