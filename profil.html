@@ -39,6 +39,7 @@
     .achievement-art.journey { background-image:url('odznaky-ukoly-druzina.png'); }
     .achievement-art.location { background-image:url('odznaky-lokace.png'); background-size:300% 200%; }
     .achievement-art.hidden-location { background-image:url('odznaky-skryte-lokace.webp'); background-size:400% 100%; }
+    .achievement-art.timed-event { background-image:url('odznaky-casove-ukoly.png'); background-size:200% 200%; }
     .creature-icons.large { display:flex; flex-wrap:wrap; gap:12px; }
     .creature-icons.large .creature-icon { width:72px; height:72px; border:2px solid #9f70b6; border-radius:50%; object-fit:cover; box-shadow:0 3px 12px #0009; }
     .achievement h3 { margin:0 0 5px; color:#efd49b; font-size:1em; overflow-wrap:anywhere; }
@@ -76,11 +77,15 @@
   }
 
   async function renderAchievements(client, characterId, container) {
-    const {data, error} = await client.rpc('earned_character_achievements', {p_character_id: characterId});
-    if (error || !Array.isArray(data)) {
+    const [{data: existing, error}, {data: timed, error: timedError}] = await Promise.all([
+      client.rpc('earned_character_achievements', {p_character_id: characterId}),
+      client.rpc('earned_timed_achievements', {p_character_id: characterId})
+    ]);
+    if (error || timedError || !Array.isArray(existing) || !Array.isArray(timed)) {
       container.textContent = 'Odznaky se nepodařilo načíst.';
       return;
     }
+    const data = [...existing, ...timed];
     if (!data.length) {
       container.textContent = 'Zatím žádné získané odznaky.';
       return;
@@ -88,16 +93,20 @@
     const list = document.createElement('ul');
     list.className = 'achievements-list';
     for (const badge of data) {
-      if (!['levels','journey','locations','hidden'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
+      if (!['levels','journey','locations','hidden','timed'].includes(badge.sheet) || !Number.isInteger(badge.slot)) continue;
       const columns = 4;
       const col = badge.slot % columns, row = Math.floor(badge.slot / columns);
       if (badge.sheet === 'levels' && row > 1) continue;
       if (badge.sheet === 'journey' && row > 2) continue;
       const item = document.createElement('li'); item.className = 'achievement';
       const art = document.createElement('span');
-      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : badge.sheet === 'hidden' ? 'hidden-location' : 'journey');
+      art.className = 'achievement-art ' + (badge.sheet === 'levels' ? 'level' : badge.sheet === 'locations' ? 'location' : badge.sheet === 'hidden' ? 'hidden-location' : badge.sheet === 'timed' ? 'timed-event' : 'journey');
       art.setAttribute('aria-hidden','true');
-      if (badge.sheet === 'hidden') {
+      if (badge.sheet === 'timed') {
+        if (badge.slot < 0 || badge.slot > 3) continue;
+        art.style.setProperty('--badge-x', badge.slot % 2 ? '100%' : '0%');
+        art.style.setProperty('--badge-y', badge.slot > 1 ? '100%' : '0%');
+      } else if (badge.sheet === 'hidden') {
         if (badge.slot < 0 || badge.slot > 3) continue;
         art.style.setProperty('--badge-x', badge.slot * 100 / 3 + '%');
         art.style.setProperty('--badge-y', '50%');
