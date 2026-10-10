@@ -37,8 +37,10 @@
     .marker.easy, .legend-dot.easy { --marker-color: #287348; }
     .marker.medium, .legend-dot.medium { --marker-color: #ad681f; }
     .marker.hard, .legend-dot.hard { --marker-color: #a83335; }
-    .marker.event, .legend-dot.event { --marker-color: #2768b5; }
-    .marker.event::before { inset: 10px; border-color: #c1defc; box-shadow: 0 0 12px #4c9ef0aa, 0 2px 5px #000a; }
+    .marker.event, .legend-dot.event { --marker-color: #1263be; }
+    .marker.event::before { inset: 8px; border: 2px solid #d5eaff; background: #1263be; box-shadow: 0 0 18px #4c9ef0, 0 2px 5px #000a; }
+    .marker.event { color: #fff; font-size: 18px; }
+    .event-label { display: inline-block; margin: 8px 0; padding: 8px 12px; border: 1px solid #92c8ff; border-radius: 8px; background: #164b82; color: #fff; font-weight: bold; }
     .marker:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
     .marker:hover::before { filter: brightness(1.25); }
     .location-marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; color: #f8d594; text-decoration: none; }
@@ -105,6 +107,7 @@
   <dialog id="questDialog" aria-labelledby="questTitle">
     <div class="quest-dialog-head"><h2 id="questTitle"></h2><form method="dialog"><button class="close" type="submit">Zavřít</button></form></div>
     <p id="questText"></p>
+    <p id="eventNotice" class="event-label" hidden>⏳ Časově omezený úkol · 50 XP · akce 11.–12. 10. 2026</p>
     <p id="questInfo"></p>
     <p id="questStatus" role="status"></p>
     <div id="acceptQuestArea"></div>
@@ -734,7 +737,10 @@ window.createAcceptQuestButton = function (client, quest, character) {
                 currentSubmissionId = null;
                 resetPhotos();
                 document.getElementById("questTitle").textContent = quest.name;
-                document.getElementById("questText").textContent = quest.description;
+                const eventQuest = quest.name === "Útok nepřátel" && quest.xp_reward === 50;
+                document.getElementById("questText").textContent = eventQuest
+                  ? quest.description.replace(/^⏳ ČASOVĚ OMEZENÝ ÚKOL[^\n]*\n\n/, "") : quest.description;
+                document.getElementById("eventNotice").hidden = !eventQuest;
                 const difficult = { easy: "Lehká", medium: "Střední", hard: "Těžká" };
                 document.getElementById("questInfo").textContent =
                   `Obtížnost: ${difficult[quest.difficulty] || quest.difficulty} · Odměna: ${quest.xp_reward} XP · Od úrovně ${quest.required_level}` +
