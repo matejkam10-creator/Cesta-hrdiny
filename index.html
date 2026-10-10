@@ -112,6 +112,7 @@
 
       <button id="login">Přihlásit se</button>
       <button id="reset" type="button">Zapomenuté heslo</button>
+      <button id="resendConfirmation" type="button">Poslat potvrzovací e-mail znovu</button>
 
       <div id="status" role="status" aria-live="polite"></div>
 
@@ -182,7 +183,31 @@
         status.textContent = "Potvrzení e-mailu zatím není zapnuté. Registraci dokončíme až po nastavení ochrany účtů.";
         return;
       }
-      status.textContent = "Pokud může být účet vytvořen, přijde ti potvrzovací odkaz e-mailem. Po potvrzení se přihlas. Zkontroluj i složku Spam.";
+      document.getElementById("email").value = email;
+      status.textContent = "Pokud může být účet vytvořen, přijde ti potvrzovací odkaz e-mailem. Když nedorazí, vrať se k přihlášení a použij tlačítko Poslat potvrzovací e-mail znovu.";
+    });
+
+    document.getElementById("resendConfirmation").addEventListener("click", async () => {
+      const field = document.getElementById("email");
+      const email = field.value.trim();
+      const status = document.getElementById("status");
+      if (!email || !field.checkValidity()) {
+        status.textContent = "Nejdřív zadej e-mail použitý při registraci.";
+        field.focus();
+        return;
+      }
+      const button = document.getElementById("resendConfirmation");
+      button.disabled = true;
+      status.textContent = "Odesílám nový potvrzovací odkaz...";
+      const emailRedirectTo = new URL("index.html", window.location.href).href;
+      const { error } = await client.auth.resend({
+        type: "signup", email, options: { emailRedirectTo }
+      });
+      status.textContent = error
+        ? "Odkaz se nepodařilo odeslat: " + error.message
+        : "Pokud účet čeká na potvrzení, dorazí nový odkaz. Zkontroluj také Spam a Hromadné zprávy.";
+      if (error) button.disabled = false;
+      else setTimeout(() => { button.disabled = false; }, 60000);
     });
 
     document.getElementById("reset").addEventListener("click", async () => {
