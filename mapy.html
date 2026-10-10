@@ -37,6 +37,8 @@
     .marker.easy, .legend-dot.easy { --marker-color: #287348; }
     .marker.medium, .legend-dot.medium { --marker-color: #ad681f; }
     .marker.hard, .legend-dot.hard { --marker-color: #a83335; }
+    .marker.event, .legend-dot.event { --marker-color: #2768b5; }
+    .marker.event::before { inset: 10px; border-color: #c1defc; box-shadow: 0 0 12px #4c9ef0aa, 0 2px 5px #000a; }
     .marker:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
     .marker:hover::before { filter: brightness(1.25); }
     .location-marker { position: absolute; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; color: #f8d594; text-decoration: none; }
@@ -92,7 +94,7 @@
       <p id="mapDescription" role="status">Načítám mapy...</p>
       <div id="mapTabs" role="tablist" aria-label="Oblasti"></div>
       <div id="mapView" class="map" aria-label="Mapa s úkoly"></div>
-      <div class="quest-legend" aria-label="Legenda mapy"><span><i class="legend-dot easy" aria-hidden="true"></i>Lehký úkol</span><span><i class="legend-dot medium" aria-hidden="true"></i>Střední úkol</span><span><i class="legend-dot hard" aria-hidden="true"></i>Těžký úkol</span><span id="locationLegend" hidden>🚪 Další lokace · zelené dveře = vše splněno</span></div>
+      <div class="quest-legend" aria-label="Legenda mapy"><span><i class="legend-dot easy" aria-hidden="true"></i>Lehký úkol</span><span><i class="legend-dot medium" aria-hidden="true"></i>Střední úkol</span><span><i class="legend-dot hard" aria-hidden="true"></i>Těžký úkol</span><span id="eventLegend" hidden><i class="legend-dot event" aria-hidden="true"></i>Časově omezený úkol</span><span id="locationLegend" hidden>🚪 Další lokace · zelené dveře = vše splněno</span></div>
       <p class="note">Klepni na bod mapy a zobrazí se zadání úkolu.</p>
     </section>
     <aside class="panel" aria-label="Tvoje postava">
@@ -657,6 +659,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             const isCity = map.order_index === 1;
             const isNature = map.name === "Divoká krajina";
             document.getElementById("locationLegend").hidden = !isCity && !isNature;
+            document.getElementById("eventLegend").hidden = true;
             if (isCity || isNature) {
               const locations = isCity ? [
                 { name: "Malý sklad města", key: "sklad", href: "sklad.html", x: 42, y: 70 },
@@ -699,6 +702,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
               view.append(empty);
               return;
             }
+            document.getElementById("eventLegend").hidden = !isCity || !quests.some(q => q.name === "Útok nepřátel");
             let completed;
             try { completed = await approvedQuestIds(); }
             catch (error) {
@@ -713,16 +717,17 @@ window.createAcceptQuestButton = function (client, quest, character) {
             quests.forEach((quest, index) => {
               if (completed.has(quest.id)) return;
               const slot = (index * 7) % (columns.length * rows.length);
-              const x = columns[slot % columns.length];
-              const y = rows[Math.floor(slot / columns.length)];
+              const isEvent = isCity && quest.name === "Útok nepřátel";
+              const x = isEvent ? 86 : columns[slot % columns.length];
+              const y = isEvent ? 82 : rows[Math.floor(slot / columns.length)];
               const marker = document.createElement("button");
               const difficulty = { easy: "lehký", medium: "střední", hard: "těžký" };
-              marker.className = "marker " + (difficulty[quest.difficulty] ? quest.difficulty : "easy");
+              marker.className = "marker " + (isEvent ? "event" : difficulty[quest.difficulty] ? quest.difficulty : "easy");
               marker.style.left = x + "%";
               marker.style.top = y + "%";
               marker.textContent = "!";
-              marker.title = quest.name + " · " + (difficulty[quest.difficulty] || "lehký") + " úkol";
-              marker.setAttribute("aria-label", "Úkol: " + quest.name + ", " + (difficulty[quest.difficulty] || "lehký") + " úkol");
+              marker.title = quest.name + (isEvent ? " · časově omezený úkol · 50 XP" : " · " + (difficulty[quest.difficulty] || "lehký") + " úkol");
+              marker.setAttribute("aria-label", "Úkol: " + quest.name + (isEvent ? ", časově omezený úkol" : ", " + (difficulty[quest.difficulty] || "lehký") + " úkol"));
               marker.addEventListener("click", async () => {
                 chosenQuest = quest;
                 document.getElementById("acceptQuestArea").replaceChildren();
