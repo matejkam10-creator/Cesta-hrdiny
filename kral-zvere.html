@@ -210,9 +210,31 @@ window.createAcceptQuestButton = function (client, quest, character) {
       fileInput.accept = "image/jpeg,image/png,image/webp";
       fileInput.multiple = true;
       fileLabel.htmlFor = fileInput.id;
+      const selectedFiles = [];
+      const selectedState = element("p", "quest-state");
+      const clearFiles = element("button", "", "Vymazat vybrané snímky");
+      clearFiles.type = "button";
+      clearFiles.hidden = true;
+      function updateSelectedState() {
+        selectedState.textContent = `Vybráno ${selectedFiles.length} z ${evidence.count} obrázků. Můžeš je přidávat po jednom.`;
+        clearFiles.hidden = selectedFiles.length === 0;
+      }
+      fileInput.addEventListener("change", () => {
+        const picked = Array.from(fileInput.files);
+        if (selectedFiles.length + picked.length > evidence.count) {
+          state.textContent = `Můžeš vybrat nejvýše ${evidence.count} obrázků celkem.`;
+        } else {
+          selectedFiles.push(...picked);
+          updateSelectedState();
+          state.textContent = "Snímky jsou připravené. Po výběru všech můžeš úkol odevzdat.";
+        }
+        fileInput.value = "";
+      });
+      clearFiles.addEventListener("click", () => { selectedFiles.length = 0; updateSelectedState(); });
+      updateSelectedState();
       const submit = element("button", "", "Odevzdat tento úkol");
       submit.type = "submit";
-      form.append(answerLabel, answer, fileLabel, fileInput, submit);
+      form.append(answerLabel, answer, fileLabel, fileInput, selectedState, clearFiles, submit);
 
       const uploaded = element("div");
       uploaded.hidden = true;
@@ -301,7 +323,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
       });
       form.addEventListener("submit", async event => {
         event.preventDefault();
-        const files = Array.from(fileInput.files);
+        const files = selectedFiles.slice();
         const text = answer.value.trim();
         if (text.length < 10 || text.length > 5000) {
           state.textContent = "Popis musí mít 10 až 5000 znaků.";
