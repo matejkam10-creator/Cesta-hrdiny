@@ -66,7 +66,33 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="tvorove.js"></script>
-  <script src="tridy.js"></script>
+  <script>
+const CHARACTER_CLASSES = Object.freeze([
+  { code: 'moritarius', name: 'Moritarius', image: 'trida-moritarius.webp', description: 'Sběrač věcí po těch, kteří tvrdili, že se z lesa určitě vrátí.' },
+  { code: 'umbrafex', name: 'Umbrafex', image: 'trida-umbrafex.webp', description: 'Opravuje stíny, které se rozhodly chodit vlastní cestou.' },
+  { code: 'famelik', name: 'Famelik', image: 'trida-famelik.webp', description: 'Ochutná cokoli, co stánek označí za jídlo. Většinou přežije.' },
+  { code: 'noxograf', name: 'Noxograf', image: 'trida-noxograf.webp', description: 'Kreslí mapy nebezpečných míst. Prázdná místa značí nezvěstné.' },
+  { code: 'dolorista', name: 'Dolorista', image: 'trida-dolorista.webp', description: 'Sbírá cizí bolesti do lahviček. O jejich obsahu nemluví.' },
+  { code: 'rattomant', name: 'Rattomant', image: 'trida-rattomant.webp', description: 'Rozumí krysám. Krysy tvrdí, že je to naopak.' },
+  { code: 'funebrar', name: 'Funebrář', image: 'trida-funebrar.webp', description: 'Vyjednává s mrtvými, kteří ještě nepochopili, že už nemají hlasovací právo.' },
+  { code: 'vespernik', name: 'Vesperník', image: 'trida-vespernik.webp', description: 'Bere zakázky výhradně po setmění.' },
+  { code: 'malediktor', name: 'Malediktor', image: 'trida-malediktor.webp', description: 'Umí uvalit kletbu. Zatím hlavně na sebe.' },
+  { code: 'exulant', name: 'Exulant', image: 'trida-exulant.webp', description: 'Zná cestu ven z království. Pokaždé vede jinam.' }
+]);
+
+function characterClassIcon(code, size = 'small') {
+  const chosen = CHARACTER_CLASSES.find(item => item.code === code);
+  if (!chosen) return null;
+  const img = document.createElement('img');
+  img.className = 'character-class-icon ' + size;
+  img.src = chosen.image;
+  img.alt = 'Třída ' + chosen.name;
+  img.title = 'Třída ' + chosen.name;
+  img.width = size === 'large' ? 68 : 34;
+  img.height = size === 'large' ? 68 : 34;
+  return img;
+}
+</script>
   <script>
     const menu = document.getElementById('mainMenu');
     const toggle = document.getElementById('menuToggle');
