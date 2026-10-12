@@ -42,6 +42,7 @@
     .achievement-art.timed-event { background-image:url('odznaky-casove-ukoly.png'); background-size:200% 200%; }
     .creature-icons.large { display:flex; flex-wrap:wrap; gap:12px; }
     .creature-icons.large .creature-icon { width:72px; height:72px; border:2px solid #9f70b6; border-radius:50%; object-fit:cover; box-shadow:0 3px 12px #0009; }
+    .character-class-icon.small { width:34px; height:34px; object-fit:contain; vertical-align:middle; margin-left:8px; }
     .achievement h3 { margin:0 0 5px; color:#efd49b; font-size:1em; overflow-wrap:anywhere; }
     .achievement p { margin:0; color:#cdbd9e; font-size:.82em; line-height:1.4; }
   </style>
@@ -60,6 +61,7 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="tvorove.js"></script>
+<script src="tridy.js"></script>
 <script>
   const client = supabase.createClient('https://qgnallfqanixepfvrzjn.supabase.co','sb_publishable_Y7QqWlRF_op6jq2CLVYKPQ_af2NsMJi');
   const status = document.getElementById('status');
@@ -150,7 +152,11 @@
     } else avatar.append(fallbackAvatar());
     const displayName = character.nickname || character.name || 'Bezejmenná postava';
     document.title = displayName + ' | Cesta hrdiny';
-    document.getElementById('name').textContent=displayName;
+    const playerName = document.getElementById('name');
+    playerName.textContent=displayName;
+    const { data: classCodes } = await client.rpc('list_character_classes');
+    const classIcon = characterClassIcon(classCodes?.[character.id]);
+    if (classIcon) playerName.append(classIcon);
     if (character.nickname && character.name && character.nickname !== character.name) {
       const gameName=document.getElementById('gameName'); gameName.textContent='Postava: '+character.name; gameName.hidden=false;
     }

@@ -35,6 +35,7 @@
     .name-and-creatures { display:flex; align-items:center; flex-wrap:wrap; gap:4px 9px; }
     .creature-icons.small { display:inline-flex; align-items:center; gap:3px; }
     .creature-icons.small .creature-icon { width:27px; height:27px; border:1px solid #a579b7; border-radius:50%; object-fit:cover; box-shadow:0 1px 5px #0009; }
+    .character-class-icon.small { width:34px; height:34px; object-fit:contain; vertical-align:middle; }
     .badge-row { margin:12px 0 0; }
     .level-badge { --accent:#a98248; --shade:#3b2b21; display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--accent); border-radius:999px; background:linear-gradient(125deg,var(--shade),#18131c); color:#fff4d9; box-shadow:inset 0 0 0 1px #fff2,0 3px 10px #0007; font:bold .82em Georgia,serif; letter-spacing:.02em; white-space:nowrap; }
     .level-badge::before { content:'✦'; color:var(--accent); font-size:1.2em; }
@@ -65,6 +66,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="tvorove.js"></script>
+  <script src="tridy.js"></script>
   <script>
     const menu = document.getElementById('mainMenu');
     const toggle = document.getElementById('menuToggle');
@@ -76,8 +78,8 @@
     (async () => {
       const { data: { user }, error: authError } = await client.auth.getUser();
       if (authError || !user) { location.replace('index.html'); return; }
-      const [{ data, error }, { data: isAdmin }, creaturesResult] = await Promise.all([
-        client.rpc('list_player_characters'), client.rpc('is_admin'), loadEarnedCreatures(client).catch(() => new Map())
+      const [{ data, error }, { data: isAdmin }, creaturesResult, { data: classCodes }] = await Promise.all([
+        client.rpc('list_player_characters'), client.rpc('is_admin'), loadEarnedCreatures(client).catch(() => new Map()), client.rpc('list_character_classes')
       ]);
       const creatures = creaturesResult;
       if (isAdmin) document.getElementById('adminLink').hidden = false;
@@ -131,7 +133,10 @@
         link.href = 'profil.html?id=' + encodeURIComponent(character.id);
         const nameAndCreatures = document.createElement('div');
         nameAndCreatures.className = 'name-and-creatures';
-        nameAndCreatures.append(name, createCreatureIcons(creatures.get(character.id), 'small'));
+        nameAndCreatures.append(name);
+        const classIcon = characterClassIcon(classCodes?.[character.id]);
+        if (classIcon) nameAndCreatures.append(classIcon);
+        nameAndCreatures.append(createCreatureIcons(creatures.get(character.id), 'small'));
         link.append(avatarFor(character.avatar_url), nameAndCreatures);
         heading.append(link);
         card.append(heading);
