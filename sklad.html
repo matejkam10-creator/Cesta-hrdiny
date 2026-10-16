@@ -28,6 +28,7 @@
     .quest-marker::before { content: ''; position: absolute; z-index: -1; inset: 14px; border: 1px solid #fff1ca; border-radius: 50%; background: #287348; box-shadow: 0 2px 5px #000a; }
     .quest-marker.medium::before { background: #ab6e25; }
     .quest-marker.hard::before { background: #923937; }
+    .quest-marker.completed::before, .quest-marker.completed.medium::before, .quest-marker.completed.hard::before { background: #77747b; border-color: #d0cbd0; box-shadow: 0 2px 5px #000a; }
     .quest-marker:hover::before { filter: brightness(1.25); }
     .quest-marker:focus-visible { outline: 2px solid white; }
     .quest-hint { margin: 0; padding: 10px 20px; font-size: .88em; }
@@ -373,8 +374,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
           throw progressError;
         }
         const progressedQuestIds = new Set((progress || []).map(item => item.quest_id));
-        const approvedQuestIds = isAdmin ? new Set()
-          : new Set((progress || []).filter(item => item.status === "approved").map(item => item.quest_id));
+        const ownApprovedQuestIds = new Set((progress || []).filter(item => item.status === "approved").map(item => item.quest_id));
+        const approvedQuestIds = isAdmin ? new Set() : ownApprovedQuestIds;
         const { data: quests, error } = await client.from("quests")
           .select("id, name, description, difficulty, xp_reward, required_level")
           .eq("location_key", "sklad").eq("is_active", true).order("created_at");
@@ -398,6 +399,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             const variants = groups.get(name) || [];
             if (!variants.length || variants.every(quest => approvedQuestIds.has(quest.id))) return;
             const marker = element("button", "quest-marker", "!");
+            if (isAdmin && variants.every(quest => ownApprovedQuestIds.has(quest.id))) marker.classList.add("completed");
             if (name === "Šťáva z plodu Ďáblova osidla") marker.classList.add("medium");
             if (["easy", "medium", "hard"].every(difficulty =>
               variants.some(quest => quest.difficulty === difficulty))) {
