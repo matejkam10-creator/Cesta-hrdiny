@@ -256,8 +256,7 @@
         card.append(previous);
       }
       if (latest?.photos?.length) appendPhotos(card, latest.photos);
-      const allowed = evidenceFor(quest.name);
-      const max = Math.max(...allowed);
+      const max = 10;
       const form = document.createElement("form");
       const label = document.createElement("label");
       label.textContent = "Vypracování úkolu (10–5000 znaků)";
@@ -266,7 +265,7 @@
       if (["returned", "rejected"].includes(latest?.status)) answer.value = latest.text_content || "";
       label.append(answer);
       const fileLabel = document.createElement("label");
-      fileLabel.textContent = "Printy či fotografie (volitelné při odevzdání, nejvýše 5)";
+      fileLabel.textContent = "Printy či fotografie (volitelné při odevzdání, 1 až 10)";
       const fileInput = document.createElement("input");
       fileInput.type = "file"; fileInput.multiple = true;
       fileInput.accept = "image/jpeg,image/png,image/webp";
@@ -320,8 +319,8 @@
         form.addEventListener("submit", async event => {
           event.preventDefault();
           const files = Array.from(fileInput.files);
-          if (files.length > 5) {
-            note.textContent = "Přilož nejvýše pět obrázků."; return;
+          if (files.length > 10) {
+            note.textContent = "Přilož nejvýše 10 obrázků."; return;
           }
           if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024)) {
             note.textContent = "Každý obrázek musí být JPG, PNG nebo WebP do 5 MB."; return;

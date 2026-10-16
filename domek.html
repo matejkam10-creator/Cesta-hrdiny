@@ -196,7 +196,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
       answer.minLength = 10;
       answer.maxLength = 5000;
       answer.required = true;
-      const fileLabel = element("label", "", `${evidence.label} (JPG, PNG nebo WebP; každý do 5 MB)`);
+      const fileLabel = element("label", "", "Fotografie (volitelné; 1 až 10, JPG, PNG nebo WebP, každá do 5 MB)");
       const fileInput = element("input");
       fileInput.type = "file";
       fileInput.id = `proof-${quest.id}`;
@@ -247,13 +247,13 @@ window.createAcceptQuestButton = function (client, quest, character) {
           links.append(link);
         });
         uploaded.hidden = false;
-        retryLabel.hidden = retryInput.hidden = retryButton.hidden = !canAddPhotos || photoCount >= evidence.count;
+        retryLabel.hidden = retryInput.hidden = retryButton.hidden = !canAddPhotos || photoCount >= 10;
       }
 
       async function uploadPhotos(files) {
         if (!submissionId || !files.length) return;
-        if (files.length > evidence.count - photoCount) {
-          state.textContent = `Můžeš přidat ještě ${evidence.count - photoCount} obrázků.`;
+        if (files.length > 10 - photoCount) {
+          state.textContent = `Můžeš přidat ještě ${10 - photoCount} obrázků.`;
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
@@ -277,7 +277,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             if (attachError) throw attachError;
             added++;
           }
-          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " z " + evidence.count + " obrázků.";
+          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " z " + 10 + " obrázků.";
         } catch (error) {
           state.textContent = `Přiloženo ${added} z vybraných snímků. Chyba: ${error.message}. Chybějící snímky můžeš doplnit níže.`;
         } finally {
@@ -300,8 +300,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
           state.textContent = "Popis musí mít 10 až 5000 znaků.";
           return;
         }
-        if (files.length > evidence.count) {
-          state.textContent = `Vyber nejvýše ${evidence.count} obrázků.`;
+        if (files.length > 10) {
+          state.textContent = `Vyber nejvýše ${10} obrázků.`;
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)

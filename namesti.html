@@ -173,7 +173,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
 
     function createQuestCard(quest, user, character) {
       const minProofs = 0;
-      const maxProofs = 5;
+      const maxProofs = 10;
       const card = element("article", "quest-card");
       const title = element("h4", "", quest.name);
       const description = element("p", "", quest.description);
@@ -189,7 +189,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
       answer.minLength = 10;
       answer.maxLength = 5000;
       answer.required = true;
-      const fileLabel = element("label", "", "Důkazní fotky (až pět; JPG, PNG nebo WebP, každá do 5 MB)");
+      const fileLabel = element("label", "", "Fotografie (volitelné; 1 až 10, JPG, PNG nebo WebP, každá do 5 MB)");
       const fileInput = element("input");
       fileInput.type = "file";
       fileInput.id = `proof-${quest.id}`;
@@ -294,7 +294,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
           return;
         }
         if (files.length < minProofs || files.length > maxProofs) {
-          state.textContent = "Přilož nejvýše pět fotek.";
+          state.textContent = "Přilož nejvýše 10 fotografií.";
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)

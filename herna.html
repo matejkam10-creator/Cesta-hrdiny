@@ -172,8 +172,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
     }
 
     function createQuestCard(quest, user, character) {
-      const minProofs = 1;
-      const maxProofs = 5;
+      const minProofs = 0;
+      const maxProofs = 10;
       const card = element("article", "quest-card");
       const title = element("h4", "", quest.name);
       const description = element("p", "", quest.description);
@@ -189,7 +189,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
       answer.minLength = 10;
       answer.maxLength = 5000;
       answer.required = true;
-      const fileLabel = element("label", "", "Jeden až pět printů splnění (JPG, PNG nebo WebP; každý do 5 MB)");
+      const fileLabel = element("label", "", "Fotografie (volitelné; 1 až 10, JPG, PNG nebo WebP, každá do 5 MB)");
       const fileInput = element("input");
       fileInput.type = "file";
       fileInput.id = `proof-${quest.id}`;
@@ -270,7 +270,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
             if (attachError) throw attachError;
             added++;
           }
-          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " snímků (povoleno 1–5).";
+          state.textContent = "Řešení čeká na schválení. Přiloženo " + (photoCount + added) + " snímků (povoleno 1–10).";
         } catch (error) {
           state.textContent = `Přiloženo ${added} z vybraných snímků. Chyba: ${error.message}. Chybějící snímky můžeš doplnit níže.`;
         } finally {
@@ -294,7 +294,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
           return;
         }
         if (files.length < minProofs || files.length > maxProofs) {
-          state.textContent = "Přilož jeden až pět printů.";
+          state.textContent = "Přilož nejvýše 10 printů.";
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)

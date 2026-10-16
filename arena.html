@@ -180,7 +180,7 @@ window.createAcceptQuestButton = function (client, quest, character) {
         "Příběh gladiátorských soubojů": { allowed: [0], label: "Tento úkol se odevzdává jako text bez fotografií." },
         "Pět nových kouzel": { allowed: [3, 5], label: "Akademie: 5 printů. Prváci na letové ploše: 3 printy." }
       }[quest.name] || { allowed: [1], label: "Důkazní fotografie" };
-      const requiredPhotos = Math.max(...evidence.allowed);
+      const requiredPhotos = 10;
       const difficulty = { easy: "Lehký", medium: "Střední", hard: "Těžký" };
       const card = element("article", "quest-card");
       const title = element("h4", "", quest.name);
@@ -197,14 +197,14 @@ window.createAcceptQuestButton = function (client, quest, character) {
       answer.minLength = 10;
       answer.maxLength = 5000;
       answer.required = true;
-      const fileLabel = element("label", "", `${evidence.label} (JPG, PNG nebo WebP; každý do 5 MB)`);
+      const fileLabel = element("label", "", "Fotografie (volitelné; 1 až 10, JPG, PNG nebo WebP, každá do 5 MB)");
       const fileInput = element("input");
       fileInput.type = "file";
       fileInput.id = `proof-${quest.id}`;
       fileInput.accept = "image/jpeg,image/png,image/webp";
       fileInput.multiple = true;
       fileLabel.htmlFor = fileInput.id;
-      fileLabel.hidden = fileInput.hidden = requiredPhotos === 0;
+      
       const submit = element("button", "", "Odevzdat tento úkol");
       submit.type = "submit";
       form.append(answerLabel, answer, fileLabel, fileInput, submit);
@@ -302,8 +302,8 @@ window.createAcceptQuestButton = function (client, quest, character) {
           state.textContent = "Popis musí mít 10 až 5000 znaků.";
           return;
         }
-        if (!evidence.allowed.includes(files.length)) {
-          state.textContent = `Vyber správný počet obrázků: ${evidence.label}`;
+        if (files.length > 10) {
+          state.textContent = "Přilož nejvýše 10 fotografií.";
           return;
         }
         if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
@@ -353,7 +353,6 @@ window.createAcceptQuestButton = function (client, quest, character) {
           submittedAnswer.hidden = !submittedAnswer.textContent;
           uploaded.hidden = false;
           await loadPhotos();
-          if (!approved && photoCount < Math.min(...evidence.allowed)) state.textContent = `Řešení čeká na schválení. Doplň snímky: ${evidence.label}`;
         } else {
           state.textContent = assignment ? "Předchozí řešení bylo vráceno. Můžeš ho opravit a zkusit znovu." : "Připraveno k odevzdání.";
           form.hidden = false;

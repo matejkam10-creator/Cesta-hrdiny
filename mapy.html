@@ -146,7 +146,7 @@
     </div>
     <div id="photoSection" class="quest-panel" hidden>
       <h3>Fotky k řešení</h3>
-      <label for="photoFile">Fotky k řešení (nepovinné; nejvýše 5, každá JPG, PNG nebo WebP do 5 MB)</label>
+      <label for="photoFile">Fotky k řešení (nepovinné; 1 až 10, každá JPG, PNG nebo WebP do 5 MB)</label>
       <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp" multiple>
       <button id="photoUpload" type="button" hidden>Přidat vybrané fotky</button>
       <p id="photoStatus" role="status"></p>
@@ -546,18 +546,18 @@ window.createAcceptQuestButton = function (client, quest, character) {
               });
               photoLinks.append(link);
             });
-            photoFile.hidden = !canUpload || photoCount >= 5;
-            photoUpload.hidden = !canUpload || photoCount >= 5;
+            photoFile.hidden = !canUpload || photoCount >= 10;
+            photoUpload.hidden = !canUpload || photoCount >= 10;
             photoUpload.textContent = kind === "draft" ? "Uložit fotky pro družinu" : "Přidat vybrané fotky";
-            if (photoCount >= 5) photoStatus.textContent = "Byl dosažen limit 5 fotek.";
+            if (photoCount >= 10) photoStatus.textContent = "Byl dosažen limit 10 fotek.";
           }
           async function uploadPhotos() {
             const files = Array.from(photoFile.files);
             const target = currentPhotoTarget;
             if (!files.length) { photoStatus.textContent = "Nejdřív vyber fotky."; return; }
             if (!target) return;
-            if (files.length > 5 - photoCount) {
-              photoStatus.textContent = `Můžeš přidat ještě ${5 - photoCount} fotek.`;
+            if (files.length > 10 - photoCount) {
+              photoStatus.textContent = `Můžeš přidat ještě ${10 - photoCount} fotek.`;
               return;
             }
             if (files.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type)
